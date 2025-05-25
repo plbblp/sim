@@ -2,10 +2,10 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "MinSizeRel/main.exe"
+			"path" : "RelWithDebInfo/MySimpleApp.exe"
 		},
 		{
-			"path" : "MinSizeRel/main.pdb"
+			"path" : "RelWithDebInfo/MySimpleApp.pdb"
 		}
 	],
 	"backtrace" : 1,
@@ -13,8 +13,7 @@
 	{
 		"commands" : 
 		[
-			"add_executable",
-			"target_link_libraries"
+			"add_executable"
 		],
 		"files" : 
 		[
@@ -28,13 +27,7 @@
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 11,
-				"parent" : 0
-			},
-			{
-				"command" : 1,
-				"file" : 0,
-				"line" : 17,
+				"line" : 7,
 				"parent" : 0
 			}
 		]
@@ -45,7 +38,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O1 /Ob1 /DNDEBUG -std:c++17"
+					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /Zi /O2 /Ob1 /DNDEBUG -std:c++17"
 				}
 			],
 			"language" : "CXX",
@@ -69,37 +62,22 @@
 			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
 		}
 	],
-	"id" : "main::@6890427a1f51a3e7e1df",
+	"id" : "MySimpleApp::@6890427a1f51a3e7e1df",
 	"link" : 
 	{
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O1 /Ob1 /DNDEBUG",
+				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /Zi /O2 /Ob1 /DNDEBUG",
 				"role" : "flags"
 			},
 			{
-				"fragment" : "/machine:x64 /INCREMENTAL:NO",
+				"fragment" : "/machine:x64 /debug /INCREMENTAL",
 				"role" : "flags"
 			},
 			{
 				"fragment" : "/subsystem:console",
 				"role" : "flags"
-			},
-			{
-				"backtrace" : 2,
-				"fragment" : "dinput8.lib",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 2,
-				"fragment" : "dxguid.lib",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 2,
-				"fragment" : "user32.lib",
-				"role" : "libraries"
 			},
 			{
 				"fragment" : "kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib",
@@ -108,8 +86,8 @@
 		],
 		"language" : "CXX"
 	},
-	"name" : "main",
-	"nameOnDisk" : "main.exe",
+	"name" : "MySimpleApp",
+	"nameOnDisk" : "MySimpleApp.exe",
 	"paths" : 
 	{
 		"build" : ".",

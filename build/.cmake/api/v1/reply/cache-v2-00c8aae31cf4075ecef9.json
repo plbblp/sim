@@ -407,7 +407,7 @@
 				}
 			],
 			"type" : "PATH",
-			"value" : "C:/Program Files/JoystickReader"
+			"value" : "C:/Program Files/SimpleTest"
 		},
 		{
 			"name" : "CMAKE_LINKER",
@@ -591,7 +591,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "JoystickReader"
+			"value" : "SimpleTest"
 		},
 		{
 			"name" : "CMAKE_RANLIB",
@@ -934,7 +934,7 @@
 			"value" : "FALSE"
 		},
 		{
-			"name" : "JoystickReader_BINARY_DIR",
+			"name" : "SimpleTest_BINARY_DIR",
 			"properties" : 
 			[
 				{
@@ -946,7 +946,7 @@
 			"value" : "D:/CTZH/sim/build"
 		},
 		{
-			"name" : "JoystickReader_IS_TOP_LEVEL",
+			"name" : "SimpleTest_IS_TOP_LEVEL",
 			"properties" : 
 			[
 				{
@@ -958,7 +958,7 @@
 			"value" : "ON"
 		},
 		{
-			"name" : "JoystickReader_SOURCE_DIR",
+			"name" : "SimpleTest_SOURCE_DIR",
 			"properties" : 
 			[
 				{
