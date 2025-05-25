@@ -194,6 +194,7 @@ void CleanupVirtualGamepad() {
 }
 
 // --- Main Logic: Polling and Mapping ---
+// --- Main Logic: Polling and Mapping ---
 void PollAndMapController() {
     if (g_pJoystick == nullptr) return;
 
@@ -215,57 +216,89 @@ void PollAndMapController() {
     }
 
     // --- Map physical joystick raw state to RemoteChannels structure ---
-    g_physicalControllerState.ch1 = physicalStateRaw.lX;
-    g_physicalControllerState.ch2 = physicalStateRaw.lY;
-    g_physicalControllerState.ch3 = physicalStateRaw.lZ;
-    g_physicalControllerState.ch4 = physicalStateRaw.lRx;
-    g_physicalControllerState.ch5 = (physicalStateRaw.rgbButtons[0] & 0x80) ? true : false; // Button 1
-    g_physicalControllerState.ch6 = physicalStateRaw.lRz;
-    g_physicalControllerState.ch7 = physicalStateRaw.rglSlider[0]; // Slider 1
-    g_physicalControllerState.ch8 = physicalStateRaw.rglSlider[1]; // Slider 2
-    g_physicalControllerState.ch9 = physicalStateRaw.lRy;
-    g_physicalControllerState.ch10 = (physicalStateRaw.rgbButtons[1] & 0x80) ? true : false; // Button 2
+    g_physicalControllerState.ch1 = physicalStateRaw.lX;    // For Right Stick X
+    g_physicalControllerState.ch2 = physicalStateRaw.lY;    // For Right Stick Y
+    g_physicalControllerState.ch3 = physicalStateRaw.lZ;    // For Left Stick Y
+    g_physicalControllerState.ch4 = physicalStateRaw.lRx;   // For Left Stick X
+    g_physicalControllerState.ch5 = (physicalStateRaw.rgbButtons[0] & 0x80) ? true : false; // Button A
+    g_physicalControllerState.ch6 = physicalStateRaw.lRz;   // For Left Trigger
+    g_physicalControllerState.ch7 = physicalStateRaw.rglSlider[0]; // For Right Trigger
+    g_physicalControllerState.ch8 = physicalStateRaw.rglSlider[1]; // For LB
+    g_physicalControllerState.ch9 = physicalStateRaw.lRy;   // For RB
+    g_physicalControllerState.ch10 = (physicalStateRaw.rgbButtons[1] & 0x80) ? true : false; // Button B
 
     // --- Map RemoteChannels to XUSB_REPORT for virtual Xbox 360 controller ---
-    XUSB_REPORT_INIT(&g_virtualControllerReport); // Initialize report to default (all zero/centered)
+    XUSB_REPORT_INIT(&g_virtualControllerReport); // Initialize report to default
 
     // Axis scaling function: DirectInput (-1000 to 1000) to XInput (-32768 to 32767)
     auto scale_axis = [](long val) -> SHORT {
         double scaled_val = static_cast<double>(val) / 1000.0 * 32767.0;
-        return static_cast<SHORT>(std::max(-32767.0, std::min(32767.0, scaled_val)));
+        return static_cast<SHORT>((std::max)(-32767.0, (std::min)(32767.0, scaled_val)));
     };
 
     // Trigger scaling function: DirectInput (-1000 to 1000) to XInput (0 to 255)
-    // Assumes -1000 is trigger fully released, 1000 is trigger fully pressed.
+    // IMPORTANT: Adjust this function if your trigger source axes (ch6, ch7) are not bipolar (-1000 to 1000)
     auto scale_trigger = [](long val) -> BYTE {
-        double scaled_val = (static_cast<double>(val) + 1000.0) / 2000.0 * 255.0; // Maps -1000..1000 to 0..255
-        return static_cast<BYTE>(std::max(0.0, std::min(255.0, scaled_val)));
+        // Assumes bipolar input (-1000 to 1000).
+        // If val is 0 (center), trigger is half-pressed. If -1000, trigger is 0. If 1000, trigger is 255.
+        double scaled_val = (static_cast<double>(val) + 1000.0) / 2000.0 * 255.0;
+        return static_cast<BYTE>((std::max)(0.0, (std::min)(255.0, scaled_val)));
     };
 
-    // --- Define your mapping here ---
-    // This is an EXAMPLE mapping. You'll need to adjust it based on how you want
-    // your ch1-ch10 to control the virtual Xbox 360 controller.
-    // An Xbox 360 controller has: Left Stick (X,Y), Right Stick (X,Y), Left Trigger, Right Trigger, D-pad, and several buttons.
+    // --- Apply the new mapping ---
 
-    // Example:
-    g_virtualControllerReport.sThumbLX = scale_axis(g_physicalControllerState.ch1); // ch1 (X-Axis) to Left Stick X
-    g_virtualControllerReport.sThumbLY = scale_axis(g_physicalControllerState.ch2 * -1); // ch2 (Y-Axis) to Left Stick Y (XInput Y is often inverted)
+    // Left Stick X: ch4 (from lRx)
+    g_virtualControllerReport.sThumbLX = scale_axis(g_physicalControllerState.ch4);
 
-    g_virtualControllerReport.sThumbRX = scale_axis(g_physicalControllerState.ch4); // ch4 (X-Rotation) to Right Stick X
-    g_virtualControllerReport.sThumbRY = scale_axis(g_physicalControllerState.ch9 * -1); // ch9 (Y-Rotation) to Right Stick Y (XInput Y is often inverted)
+    // Left Stick Y: ch3 (from lZ) - XInput Y is often inverted (up = positive)
+    g_virtualControllerReport.sThumbLY = scale_axis(g_physicalControllerState.ch3 * -1);
 
-    g_virtualControllerReport.bLeftTrigger  = scale_trigger(g_physicalControllerState.ch3); // ch3 (Z-Axis) to Left Trigger
-    g_virtualControllerReport.bRightTrigger = scale_trigger(g_physicalControllerState.ch6); // ch6 (Z-Rotation) to Right Trigger
+    // Right Stick X: ch1 (from lX)
+    g_virtualControllerReport.sThumbRX = scale_axis(g_physicalControllerState.ch1);
 
-    if (g_physicalControllerState.ch5)  g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_A;         // ch5 (Button 1) to A
-    if (g_physicalControllerState.ch10) g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_B;        // ch10 (Button 2) to B
+    // Right Stick Y: ch2 (from lY) - XInput Y is often inverted
+    g_virtualControllerReport.sThumbRY = scale_axis(g_physicalControllerState.ch2 * -1);
 
-    // How to map ch7 (Slider 1) and ch8 (Slider 2)?
-    // Xbox 360 doesn't have extra analog sliders. Map them to buttons or ignore.
-    // Example: Map ch7 to Left Shoulder if its value is high (acting like a button)
-    if (g_physicalControllerState.ch7 > 500) g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
-    // Example: Map ch8 to Right Shoulder if its value is high
-    if (g_physicalControllerState.ch8 > 500) g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
+    // Left Trigger: ch6 (from lRz)
+    // Check the actual range of lRz. If it's a throttle (0 to 1000 or -1000 to 0),
+    // you'll need a different scaling function for the trigger.
+    g_virtualControllerReport.bLeftTrigger = scale_trigger(g_physicalControllerState.ch6);
+
+    // Right Trigger: ch7 (from rglSlider[0])
+    // Check the actual range of rglSlider[0].
+    g_virtualControllerReport.bRightTrigger = scale_trigger(g_physicalControllerState.ch7);
+
+    // Button A: ch5 (from Button 0)
+    if (g_physicalControllerState.ch5) {
+        g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_A;
+    }
+
+    // Button B: ch10 (from Button 1)
+    if (g_physicalControllerState.ch10) {
+        g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_B;
+    }
+
+    // LB (Left Bumper/Shoulder): ch8 (from rglSlider[1])
+    // Assuming ch8 > 0 means pressed. Adjust threshold as needed.
+    // If rglSlider[1] centers at 0, then > some_positive_threshold or < some_negative_threshold.
+    // If rglSlider[1] is unipolar (e.g. 0 to 1000), then > some_threshold_above_zero.
+    // For simplicity, let's assume positive half of the range means pressed.
+    if (g_physicalControllerState.ch8 > 0) { // Example threshold: if slider is moved from center (0) to positive
+    // if (g_physicalControllerState.ch8 > 500) { // Or a more distinct threshold
+        g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
+    }
+
+    // RB (Right Bumper/Shoulder): ch9 (from lRy)
+    // Assuming ch9 > 0 means pressed. Adjust threshold as needed.
+    // lRy is an axis, so it ranges from -1000 to 1000.
+    // You need to decide what part of its range constitutes an RB press.
+    if (g_physicalControllerState.ch9 > 500) { // Example: If lRy is pushed more than halfway up/forward
+        g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
+    }
+    // Alternatively, if lRy is used like a two-way switch:
+    // else if (g_physicalControllerState.ch9 < -500) {
+    //     // Map to another button or action if needed
+    // }
 
 
     // Update the virtual controller state
@@ -311,31 +344,29 @@ void PrintControllerStates() {
 
 // --- Utility: Dummy Window for DirectInput ---
 HWND CreateDummyWindow() {
-    WNDCLASS wc = {0};
-    wc.lpfnWndProc = DefWindowProc; // Default window procedure
-    wc.hInstance = GetModuleHandle(nullptr); // Get instance handle
-    wc.lpszClassName = TEXT("MyDummyDInputWindow"); // Unique class name
+    WNDCLASSW wc = {0}; // Use WNDCLASSW for Unicode
+wc.lpfnWndProc = DefWindowProc;
+wc.hInstance = GetModuleHandle(nullptr);
+wc.lpszClassName = L"MyDummyDInputWindowUnicode"; // Use L"" for wide string literal
 
-    if (!RegisterClass(&wc)) {
-        // If registration fails but class already exists, it's okay for this simple case
-        if (GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
-             std::cerr << "Error: Failed to register dummy window class. Error code: " << GetLastError() << std::endl;
-             return nullptr;
-        }
+if (!RegisterClassW(&wc)) { // Use RegisterClassW
+    if (GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+         std::cerr << "Error: Failed to register dummy window class. Error code: " << GetLastError() << std::endl;
+         return nullptr;
     }
+}
 
-    HWND hWnd = CreateWindowEx(
-        0,                              // Optional window styles.
-        wc.lpszClassName,               // Window class
-        TEXT("Dummy DInput Window"),    // Window text
-        0,                              // Window style (not visible)
-        0, 0, 0, 0,                     // Size and position (not relevant for message-only)
-        HWND_MESSAGE,                   // Use HWND_MESSAGE for message-only windows
-        nullptr,                        // Parent window
-        nullptr,                        // Menu
-        wc.hInstance,                   // Instance handle
-        nullptr                         // Additional application data
-    );
+HWND hWnd = CreateWindowExW( // Explicitly call CreateWindowExW
+    0,
+    wc.lpszClassName,       // Now LPCWSTR
+    L"Dummy DInput Window", // Now LPCWSTR
+    0,
+    0, 0, 0, 0,
+    HWND_MESSAGE,
+    nullptr,
+    wc.hInstance,
+    nullptr
+);
 
     if (!hWnd) {
         std::cerr << "Error: Failed to create dummy window. Error code: " << GetLastError() << std::endl;
@@ -379,7 +410,7 @@ int main() {
         PrintControllerStates();  // Display current states
 
         // Check for ESC key press to quit
-        if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
+        if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) && (GetAsyncKeyState('Q') & 0x8000)) {
             std::cout << "ESC key pressed. Exiting..." << std::endl;
             break;
         }
