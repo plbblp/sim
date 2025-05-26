@@ -58,6 +58,18 @@
         "xmemory": "cpp",
         "xstring": "cpp",
         "xtr1common": "cpp",
-        "xutility": "cpp"
+        "xutility": "cpp",
+        "array": "cpp",
+        "chrono": "cpp",
+        "complex": "cpp",
+        "deque": "cpp",
+        "forward_list": "cpp",
+        "iomanip": "cpp",
+        "map": "cpp",
+        "mutex": "cpp",
+        "queue": "cpp",
+        "set": "cpp",
+        "sstream": "cpp",
+        "xtree": "cpp"
     }   
 }

@@ -2,10 +2,10 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "MinSizeRel/JoystickReaderApp.exe"
+			"path" : "Debug/JoystickReaderApp.exe"
 		},
 		{
-			"path" : "MinSizeRel/JoystickReaderApp.pdb"
+			"path" : "Debug/JoystickReaderApp.pdb"
 		}
 	],
 	"backtrace" : 2,
@@ -73,7 +73,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O1 /Ob1 /DNDEBUG -std:c++17"
+					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1 -std:c++17"
 				}
 			],
 			"includes" : 
@@ -115,11 +115,11 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O1 /Ob1 /DNDEBUG",
+				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1",
 				"role" : "flags"
 			},
 			{
-				"fragment" : "/machine:x64 /INCREMENTAL:NO",
+				"fragment" : "/machine:x64 /debug /INCREMENTAL",
 				"role" : "flags"
 			},
 			{
@@ -128,7 +128,7 @@
 			},
 			{
 				"backtrace" : 3,
-				"fragment" : "-LIBPATH:D:\\CTZH\\sim\\libs\\ViGEm\\lib\\release\\x64",
+				"fragment" : "-LIBPATH:D:\\CTZH\\sim\\libs\\ViGEm\\bin\\release\\x64",
 				"role" : "libraryPath"
 			},
 			{
@@ -153,72 +153,87 @@
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_highgui4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_highgui4d.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_ml4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_ml4d.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_objdetect4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_objdetect4d.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_photo4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_photo4d.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_stitching4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_stitching4d.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_video4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_video4d.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_videoio4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_videoio4d.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_imgcodecs4.lib",
+				"fragment" : "SetupAPI.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_calib3d4.lib",
+				"fragment" : "dxgi.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_dnn4.lib",
+				"fragment" : "d3d11.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_features2d4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_imgcodecs4d.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_flann4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_calib3d4d.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_imgproc4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_dnn4d.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_core4.lib",
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_features2d4d.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_flann4d.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_imgproc4d.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\debug\\lib\\opencv_core4d.lib",
 				"role" : "libraries"
 			},
 			{

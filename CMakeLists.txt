@@ -11,7 +11,7 @@ message(STATUS "Project Source Directory: ${CMAKE_CURRENT_SOURCE_DIR}")
 # --- ViGEmClient SDK Paths ---
 set(VIGEM_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/ViGEm/include")
 message(STATUS "ViGEm Include Dir: ${VIGEM_INCLUDE_DIR}")
-set(VIGEM_LIBRARY_DIR_DEBUG_X64 "${CMAKE_CURRENT_SOURCE_DIR}/libs/ViGEm/lib/release/x64")
+set(VIGEM_LIBRARY_DIR_DEBUG_X64 "${CMAKE_CURRENT_SOURCE_DIR}/libs/ViGEm/bin/release/x64")
 message(STATUS "ViGEm Library Dir (Debug x64): ${VIGEM_LIBRARY_DIR_DEBUG_X64}")
 set(VIGEM_DLL_DIR_DEBUG_X64 "${CMAKE_CURRENT_SOURCE_DIR}/libs/ViGEm/bin/release/x64")
 message(STATUS "ViGEm DLL Dir (Debug x64): ${VIGEM_DLL_DIR_DEBUG_X64}")
@@ -59,7 +59,7 @@ endif()
 message(STATUS "Attempting to link libraries to '${EXECUTABLE_NAME}'")
 # 链接 DirectInput, User32, ViGEmClient, 和 OpenCV
 # OpenCV_LIBS 变量由 find_package(OpenCV) 设置，包含了所有需要的OpenCV模块
-target_link_libraries(${EXECUTABLE_NAME} PRIVATE dinput8 dxguid user32 ViGEmClient ${OpenCV_LIBS})
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE dinput8 dxguid user32 ViGEmClient ${OpenCV_LIBS} SetupAPI dxgi d3d11)
 message(STATUS "target_link_libraries for '${EXECUTABLE_NAME}' called successfully.")
 
 # --- Post-build step to copy ViGEmClient.dll ---
@@ -75,5 +75,6 @@ if(EXISTS "${VIGEM_DLL_FILE_DEBUG_X64}")
 else()
     message(WARNING "ViGEmClient.dll NOT found at ${VIGEM_DLL_FILE_DEBUG_X64}. Runtime will likely fail.")
 endif()
+
 
 message(STATUS "CMakeLists.txt processing finished.")

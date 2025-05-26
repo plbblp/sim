@@ -2,10 +2,10 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "RelWithDebInfo/JoystickReaderApp.exe"
+			"path" : "Release/JoystickReaderApp.exe"
 		},
 		{
-			"path" : "RelWithDebInfo/JoystickReaderApp.pdb"
+			"path" : "Release/JoystickReaderApp.pdb"
 		}
 	],
 	"backtrace" : 2,
@@ -73,7 +73,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /Zi /O2 /Ob1 /DNDEBUG -std:c++17"
+					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O2 /Ob2 /DNDEBUG -std:c++17"
 				}
 			],
 			"includes" : 
@@ -115,11 +115,11 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /Zi /O2 /Ob1 /DNDEBUG",
+				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O2 /Ob2 /DNDEBUG",
 				"role" : "flags"
 			},
 			{
-				"fragment" : "/machine:x64 /debug /INCREMENTAL",
+				"fragment" : "/machine:x64 /INCREMENTAL:NO",
 				"role" : "flags"
 			},
 			{
@@ -128,7 +128,7 @@
 			},
 			{
 				"backtrace" : 3,
-				"fragment" : "-LIBPATH:D:\\CTZH\\sim\\libs\\ViGEm\\lib\\release\\x64",
+				"fragment" : "-LIBPATH:D:\\CTZH\\sim\\libs\\ViGEm\\bin\\release\\x64",
 				"role" : "libraryPath"
 			},
 			{
@@ -184,6 +184,21 @@
 			{
 				"backtrace" : 4,
 				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_videoio4.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "SetupAPI.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "dxgi.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "d3d11.lib",
 				"role" : "libraries"
 			},
 			{
