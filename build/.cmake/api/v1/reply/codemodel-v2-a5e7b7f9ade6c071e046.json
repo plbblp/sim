@@ -43,14 +43,14 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-Debug-12815f429460ff7de0e8.json",
+					"jsonFile" : "target-ALL_BUILD-Debug-9e7557d400f4f21a5720.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-JoystickReaderApp-Debug-b2f064b5d1210b1de3ab.json",
+					"jsonFile" : "target-JoystickReaderApp-Debug-ba0a3d70856c0e1eb4dc.json",
 					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
@@ -105,14 +105,14 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-Release-12815f429460ff7de0e8.json",
+					"jsonFile" : "target-ALL_BUILD-Release-9e7557d400f4f21a5720.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-JoystickReaderApp-Release-240514fcf8ad98b8879e.json",
+					"jsonFile" : "target-JoystickReaderApp-Release-c30469bca0f9929ca989.json",
 					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
@@ -167,14 +167,14 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-MinSizeRel-12815f429460ff7de0e8.json",
+					"jsonFile" : "target-ALL_BUILD-MinSizeRel-9e7557d400f4f21a5720.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-JoystickReaderApp-MinSizeRel-09b0e74b7abd92ba69eb.json",
+					"jsonFile" : "target-JoystickReaderApp-MinSizeRel-c280ad0160f85ce8d395.json",
 					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
@@ -229,14 +229,14 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-RelWithDebInfo-12815f429460ff7de0e8.json",
+					"jsonFile" : "target-ALL_BUILD-RelWithDebInfo-9e7557d400f4f21a5720.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-JoystickReaderApp-RelWithDebInfo-86d006ae6f7aed312f4e.json",
+					"jsonFile" : "target-JoystickReaderApp-RelWithDebInfo-4e014fdbd5e11a02e25f.json",
 					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
