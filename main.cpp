@@ -1,97 +1,85 @@
-// main.cpp
-
-#define NOMINMAX // MUST be at the very top, before any Windows.h or other conflicting headers
-#define DIRECTINPUT_VERSION 0x0800
-
-#include <windows.h>
+﻿#define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 #include <iostream>
-#include <string>
 #include <vector>
+#include <string>
+#include <windows.h>
+#include <ViGEm/Client.h>
 #include <algorithm> // For std::max and std::min
+#include <chrono>    // For FPS calculation
+#include <iomanip>   // For std::fixed, std::setprecision
+#include <sstream>   // For std::ostringstream
 
-#include <ViGEm/Client.h> // ViGEm Client SDK Header
+// OpenCV Includes
+#include <opencv2/opencv.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 
-#include <dxgi1_2.h>      // DXGI 1.2 for IDXGIOutputDuplication
-#include <d3d11.h>        // Direct3D 11
+// 用于存储遥控器通道值的结构体
+struct RemoteChannels {
+    long ch1;  // X-axis
+    long ch2;  // Y-axis
+    long ch3;  // Z-axis
+    long ch4;  // X Rotation
+    bool ch5;  // Button 1
+    long ch6;  // Z Rotation
+    long ch7;  // Slider 1
+    long ch8;  // Slider 2
+    long ch9;  // Y Rotation
+    bool ch10; // Button 2
 
-#include <opencv2/opencv.hpp> // Main OpenCV header (or specific headers like highgui.hpp, imgproc.hpp)
+    RemoteChannels() :
+        ch1(0), ch2(0), ch3(0), ch4(0),
+        ch5(false),
+        ch6(0), ch7(0), ch8(0), ch9(0),
+        ch10(false) {}
+};
 
-
-// --- Global Variables ---
-
-// DirectInput
+// DirectInput Globals
 LPDIRECTINPUT8        g_pDI = nullptr;
 LPDIRECTINPUTDEVICE8  g_pJoystick = nullptr;
+RemoteChannels        g_joystickState;
 
-// ViGEm
-PVIGEM_CLIENT         g_pVigemClient = nullptr;
+// ViGEm Globals
+PVIGEM_CLIENT         g_pVigem = nullptr;
 PVIGEM_TARGET         g_pTargetX360 = nullptr;
-XUSB_REPORT           g_virtualControllerReport;
+XUSB_REPORT           g_virtualReport;
 
-// Screen Capture (DXGI Desktop Duplication)
-ID3D11Device*           g_pD3DDevice = nullptr;
-ID3D11DeviceContext*    g_pD3DImmediateContext = nullptr;
-IDXGIOutputDuplication* g_pDeskDupl = nullptr;
-DXGI_OUTPUT_DESC        g_dxgiOutputDesc;
-BYTE*                   g_pCaptureBuffer = nullptr; // Raw pixel buffer
-UINT                    g_captureBufferSize = 0;
-
-// OpenCV
-cv::Mat                 g_capturedFrameMat; // OpenCV Mat to store and display the captured frame
-const std::string       g_opencvWindowName = "Game Capture Preview";
-
-// Application State
-HWND                    g_hDummyWindow = nullptr; // Dummy window for DirectInput
-
-// Controller State Structure
-struct RemoteChannels {
-    long ch1, ch2, ch3, ch4, ch6, ch7, ch8, ch9;
-    bool ch5, ch10;
-    RemoteChannels() : ch1(0), ch2(0), ch3(0), ch4(0), ch5(false), ch6(0), ch7(0), ch8(0), ch9(0), ch10(false) {}
-};
-RemoteChannels g_physicalControllerState;
+// Screen Capture Globals
+cv::Mat captured_frame;
+std::string CAPTURE_WINDOW_TITLE = "Liftoff: Micro Drones"; // *** 您的游戏窗口标题 ***
+HWND game_window_hwnd = nullptr;
+HDC game_window_hdc = nullptr;
+HDC compatible_hdc = nullptr;
+HBITMAP compatible_bitmap = nullptr;
+BITMAPINFOHEADER bi;
+int frame_width = 0;
+int frame_height = 0;
+const std::string PREVIEW_WINDOW_NAME = "Game Capture Preview";
 
 
-// --- Function Prototypes (Order might matter for definitions below) ---
+// FPS Calculation Globals
+std::chrono::steady_clock::time_point last_fps_time_point;
+int frame_counter_fps = 0;
+double display_fps = 0.0;
+
+
+// --- Function Prototypes ---
 BOOL CALLBACK EnumJoysticksCallback(const DIDEVICEINSTANCE* pdidInstance, VOID* pContext);
 BOOL CALLBACK EnumAxesCallback(const DIDEVICEOBJECTINSTANCE* pdidoi, VOID* pContext);
-bool InitializeDirectInput();
+bool InitializeDirectInput(HWND hWnd);
 void CleanupDirectInput();
 bool InitializeVirtualGamepad();
 void CleanupVirtualGamepad();
-bool InitializeScreenCapture();
-void CleanupScreenCapture();
-void PollAndMapController();
-bool CaptureAndDisplayFrame();
-void PrintControllerStates(); // Optional for debugging
 HWND CreateDummyWindow();
+bool InitializeScreenCapture(const std::string& window_title);
+void CaptureFrame();
+void CleanupScreenCapture();
+void DrawFrameInfo(cv::Mat& frame_to_draw);
+void PollJoystickAndMapToVirtual();
 
 
-// --- Function Definitions ---
-
-HWND CreateDummyWindow() {
-    WNDCLASSW wc = {0}; // Use WNDCLASSW for Unicode
-    wc.lpfnWndProc = DefWindowProc;
-    wc.hInstance = GetModuleHandle(nullptr);
-    wc.lpszClassName = L"MySimDummyWindowUnicode"; // Unique Unicode class name
-
-    if (!RegisterClassW(&wc)) {
-        if (GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
-            std::cerr << "Error: Failed to register dummy window class. Error code: " << GetLastError() << std::endl;
-            return nullptr;
-        }
-    }
-    g_hDummyWindow = CreateWindowExW(
-        0, wc.lpszClassName, L"Sim Dummy Window", 0,
-        0, 0, 0, 0, HWND_MESSAGE, nullptr, wc.hInstance, nullptr
-    );
-    if (!g_hDummyWindow) {
-        std::cerr << "Error: Failed to create dummy window. Error code: " << GetLastError() << std::endl;
-    }
-    return g_hDummyWindow;
-}
-
+// --- DirectInput Functions ---
 BOOL CALLBACK EnumJoysticksCallback(const DIDEVICEINSTANCE* pdidInstance, VOID* pContext) {
     HRESULT hr = g_pDI->CreateDevice(pdidInstance->guidInstance, &g_pJoystick, nullptr);
     return SUCCEEDED(hr) ? DIENUM_STOP : DIENUM_CONTINUE;
@@ -111,25 +99,21 @@ BOOL CALLBACK EnumAxesCallback(const DIDEVICEOBJECTINSTANCE* pdidoi, VOID* pCont
     return DIENUM_CONTINUE;
 }
 
-bool InitializeDirectInput() {
-    if (!g_hDummyWindow) {
-        std::cerr << "Error: Dummy window not created before DirectInput initialization." << std::endl;
-        return false;
-    }
-    HRESULT hr = DirectInput8Create(GetModuleHandle(nullptr), DIRECTINPUT_VERSION, IID_IDirectInput8, (VOID**)&g_pDI, nullptr);
-    if (FAILED(hr)) { std::cerr << "Error: DirectInput8Create failed! HR: " << hr << std::endl; return false; }
-
+bool InitializeDirectInput(HWND hWnd) {
+    HRESULT hr;
+    hr = DirectInput8Create(GetModuleHandle(nullptr), DIRECTINPUT_VERSION, IID_IDirectInput8, (VOID**)&g_pDI, nullptr);
+    if (FAILED(hr)) { std::cerr << "DirectInput8Create failed!" << std::endl; return false; }
     hr = g_pDI->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumJoysticksCallback, nullptr, DIEDFL_ATTACHEDONLY);
-    if (FAILED(hr) || !g_pJoystick) {
-        std::cerr << "Error: No joystick found or EnumDevices failed! HR: " << hr << std::endl;
-        if(g_pDI) { g_pDI->Release(); g_pDI = nullptr; }
+    if (FAILED(hr) || g_pJoystick == nullptr) {
+        std::cerr << "No joystick/gamepad found or EnumDevices failed!" << std::endl;
+        if(g_pDI) g_pDI->Release(); g_pDI = nullptr;
         return false;
     }
     hr = g_pJoystick->SetDataFormat(&c_dfDIJoystick2);
-    if (FAILED(hr)) { std::cerr << "Error: SetDataFormat failed! HR: " << hr << std::endl; /* cleanup */ return false; }
-    hr = g_pJoystick->SetCooperativeLevel(g_hDummyWindow, DISCL_BACKGROUND | DISCL_NONEXCLUSIVE);
-    if (FAILED(hr)) { std::cerr << "Error: SetCooperativeLevel failed! HR: " << hr << std::endl; /* cleanup */ return false; }
-    g_pJoystick->EnumObjects(EnumAxesCallback, nullptr, DIDFT_AXIS);
+    if (FAILED(hr)) { std::cerr << "SetDataFormat failed!" << std::endl; g_pJoystick->Release(); g_pJoystick = nullptr; g_pDI->Release(); g_pDI = nullptr; return false; }
+    hr = g_pJoystick->SetCooperativeLevel(hWnd, DISCL_BACKGROUND | DISCL_NONEXCLUSIVE);
+    if (FAILED(hr)) { std::cerr << "SetCooperativeLevel failed!" << std::endl; g_pJoystick->Release(); g_pJoystick = nullptr; g_pDI->Release(); g_pDI = nullptr; return false; }
+    g_pJoystick->EnumObjects(EnumAxesCallback, (VOID*)hWnd, DIDFT_AXIS);
     g_pJoystick->Acquire();
     std::cout << "DirectInput Joystick initialized." << std::endl;
     return true;
@@ -141,276 +125,282 @@ void CleanupDirectInput() {
     std::cout << "DirectInput cleaned up." << std::endl;
 }
 
+// --- ViGEm Functions ---
 bool InitializeVirtualGamepad() {
-    g_pVigemClient = vigem_alloc();
-    if (!g_pVigemClient) { std::cerr << "Error: Failed to allocate ViGEm client!" << std::endl; return false; }
-    VIGEM_ERROR err = vigem_connect(g_pVigemClient);
+    g_pVigem = vigem_alloc();
+    if (g_pVigem == nullptr) { std::cerr << "Failed to allocate ViGEm client!" << std::endl; return false; }
+    VIGEM_ERROR err = vigem_connect(g_pVigem);
     if (!VIGEM_SUCCESS(err)) {
-        std::cerr << "Error: ViGEm Bus connection failed! Code: " << err << std::endl;
-        vigem_free(g_pVigemClient); g_pVigemClient = nullptr; return false;
+        std::cerr << "ViGEm Bus connection failed! Error code: " << err << std::endl; // MODIFIED
+        vigem_free(g_pVigem); g_pVigem = nullptr; return false;
     }
     g_pTargetX360 = vigem_target_x360_alloc();
-    if (!g_pTargetX360) {
-        std::cerr << "Error: Failed to allocate Xbox 360 target!" << std::endl;
-        vigem_disconnect(g_pVigemClient); vigem_free(g_pVigemClient); g_pVigemClient = nullptr; return false;
-    }
-    err = vigem_target_add(g_pVigemClient, g_pTargetX360);
+    if (g_pTargetX360 == nullptr) { std::cerr << "Failed to allocate Xbox 360 target!" << std::endl; vigem_disconnect(g_pVigem); vigem_free(g_pVigem); g_pVigem = nullptr; return false; }
+    err = vigem_target_add(g_pVigem, g_pTargetX360);
     if (!VIGEM_SUCCESS(err)) {
-        std::cerr << "Error: Failed to add Xbox 360 target! Code: " << err << std::endl;
-        vigem_target_free(g_pTargetX360); g_pTargetX360 = nullptr;
-        vigem_disconnect(g_pVigemClient); vigem_free(g_pVigemClient); g_pVigemClient = nullptr; return false;
+        std::cerr << "Failed to add Xbox 360 target to ViGEm Bus! Error code: " << err << std::endl; // MODIFIED
+        vigem_target_free(g_pTargetX360); g_pTargetX360 = nullptr; vigem_disconnect(g_pVigem); vigem_free(g_pVigem); g_pVigem = nullptr; return false;
     }
-    XUSB_REPORT_INIT(&g_virtualControllerReport);
-    std::cout << "Virtual Xbox 360 controller initialized." << std::endl;
+    XUSB_REPORT_INIT(&g_virtualReport);
+    std::cout << "Virtual Xbox 360 controller initialized and added to ViGEm Bus." << std::endl;
     return true;
 }
 
 void CleanupVirtualGamepad() {
-    if (g_pVigemClient && g_pTargetX360) {
-        vigem_target_remove(g_pVigemClient, g_pTargetX360);
-        vigem_target_free(g_pTargetX360); g_pTargetX360 = nullptr;
-    }
-    if (g_pVigemClient) { vigem_disconnect(g_pVigemClient); vigem_free(g_pVigemClient); g_pVigemClient = nullptr; }
+    if (g_pVigem && g_pTargetX360) { vigem_target_remove(g_pVigem, g_pTargetX360); vigem_target_free(g_pTargetX360); g_pTargetX360 = nullptr; }
+    if (g_pVigem) { vigem_disconnect(g_pVigem); vigem_free(g_pVigem); g_pVigem = nullptr; }
     std::cout << "Virtual gamepad cleaned up." << std::endl;
 }
 
-bool InitializeScreenCapture() {
-    HRESULT hr;
-    D3D_DRIVER_TYPE driverTypes[] = { D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP };
-    D3D_FEATURE_LEVEL featureLevels[] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1 };
-    D3D_FEATURE_LEVEL featureLevel;
-
-    for (UINT i = 0; i < ARRAYSIZE(driverTypes); ++i) {
-        hr = D3D11CreateDevice(nullptr, driverTypes[i], nullptr, 0, featureLevels, ARRAYSIZE(featureLevels),
-                               D3D11_SDK_VERSION, &g_pD3DDevice, &featureLevel, &g_pD3DImmediateContext);
-        if (SUCCEEDED(hr)) break;
+// --- Helper Functions ---
+HWND CreateDummyWindow() {
+    WNDCLASS wc = {0};
+    wc.lpfnWndProc = DefWindowProc;
+    wc.hInstance = GetModuleHandle(nullptr);
+    wc.lpszClassName = TEXT("DummyDInputWindowForJoystick");
+    if (!RegisterClass(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+         std::cerr << "Failed to register dummy window class. Error: " << GetLastError() << std::endl; return nullptr;
     }
-    if (FAILED(hr)) { std::cerr << "Error: D3D11CreateDevice failed! HR: " << hr << std::endl; return false; }
+    HWND hWnd = CreateWindow(wc.lpszClassName, TEXT("Dummy DInput Window"), 0,0,0,0,0, HWND_MESSAGE, nullptr, wc.hInstance, nullptr);
+    if (!hWnd) { std::cerr << "Failed to create dummy window. Error: " << GetLastError() << std::endl; }
+    return hWnd;
+}
 
-    IDXGIDevice* dxgiDevice = nullptr;
-    hr = g_pD3DDevice->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgiDevice);
-    if (FAILED(hr)) { std::cerr << "Error: Query IDXGIDevice failed! HR: " << hr << std::endl; /* cleanup */ return false; }
-
-    IDXGIAdapter* dxgiAdapter = nullptr;
-    hr = dxgiDevice->GetParent(__uuidof(IDXGIAdapter), (void**)&dxgiAdapter);
-    dxgiDevice->Release();
-    if (FAILED(hr)) { std::cerr << "Error: Get DXGI adapter failed! HR: " << hr << std::endl; /* cleanup */ return false; }
-
-    IDXGIOutput* dxgiOutput = nullptr;
-    hr = dxgiAdapter->EnumOutputs(0, &dxgiOutput); // Primary monitor
-    dxgiAdapter->Release();
-    if (FAILED(hr)) { std::cerr << "Error: Get DXGI output failed! HR: " << hr << std::endl; /* cleanup */ return false; }
-
-    dxgiOutput->GetDesc(&g_dxgiOutputDesc);
-
-    IDXGIOutput1* dxgiOutput1 = nullptr;
-    hr = dxgiOutput->QueryInterface(__uuidof(IDXGIOutput1), (void**)&dxgiOutput1);
-    dxgiOutput->Release();
-    if (FAILED(hr)) { std::cerr << "Error: Query IDXGIOutput1 failed! HR: " << hr << std::endl; /* cleanup */ return false; }
-
-    hr = dxgiOutput1->DuplicateOutput(g_pD3DDevice, &g_pDeskDupl);
-    dxgiOutput1->Release();
-    if (FAILED(hr)) {
-        std::cerr << "Error: DuplicateOutput failed! HR: " << hr << std::endl;
-        if (hr == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE) std::cerr << "  Reason: Max applications or fullscreen app running." << std::endl;
-        /* cleanup */ return false;
+// --- Screen Capture Functions (using GDI BitBlt from your existing code) ---
+bool InitializeScreenCapture(const std::string& window_title) {
+    game_window_hwnd = FindWindowA(NULL, window_title.c_str());
+    if (game_window_hwnd == NULL) {
+        std::cerr << "ERROR: Could not find game window: " << window_title << std::endl;
+        return false;
     }
-    std::cout << "Screen Capture initialized. Output: "
-              << (g_dxgiOutputDesc.DesktopCoordinates.right - g_dxgiOutputDesc.DesktopCoordinates.left)
-              << "x" << (g_dxgiOutputDesc.DesktopCoordinates.bottom - g_dxgiOutputDesc.DesktopCoordinates.top) << std::endl;
-    cv::namedWindow(g_opencvWindowName, cv::WINDOW_AUTOSIZE);
+    RECT window_rect;
+    GetClientRect(game_window_hwnd, &window_rect);
+    frame_width = window_rect.right - window_rect.left;
+    frame_height = window_rect.bottom - window_rect.top;
+
+    if (frame_width <= 0 || frame_height <= 0) {
+        std::cerr << "ERROR: Invalid window dimensions for capture (" << frame_width << "x" << frame_height << ")" << std::endl;
+        return false;
+    }
+
+    game_window_hdc = GetDC(game_window_hwnd);
+    if (game_window_hdc == NULL) { std::cerr << "ERROR: Could not get DC of game window." << std::endl; return false; }
+    compatible_hdc = CreateCompatibleDC(game_window_hdc);
+    if (compatible_hdc == NULL) { std::cerr << "ERROR: Could not create compatible DC." << std::endl; ReleaseDC(game_window_hwnd, game_window_hdc); return false; }
+    compatible_bitmap = CreateCompatibleBitmap(game_window_hdc, frame_width, frame_height);
+    if (compatible_bitmap == NULL) { std::cerr << "ERROR: Could not create compatible bitmap." << std::endl; DeleteDC(compatible_hdc); ReleaseDC(game_window_hwnd, game_window_hdc); return false; }
+    SelectObject(compatible_hdc, compatible_bitmap);
+
+    bi.biSize = sizeof(BITMAPINFOHEADER);
+    bi.biWidth = frame_width;
+    bi.biHeight = -frame_height;
+    bi.biPlanes = 1;
+    bi.biBitCount = 32; // Capture as BGRA
+    bi.biCompression = BI_RGB;
+    bi.biSizeImage = 0;
+    bi.biXPelsPerMeter = 0;
+    bi.biYPelsPerMeter = 0;
+    bi.biClrUsed = 0;
+    bi.biClrImportant = 0;
+
+    captured_frame.create(frame_height, frame_width, CV_8UC4); // BGRA for 32-bit capture
+
+    std::cout << "Screen capture initialized for window: " << window_title << " (" << frame_width << "x" << frame_height << ")" << std::endl;
     return true;
 }
 
-void CleanupScreenCapture() {
-    if (g_pDeskDupl) { g_pDeskDupl->Release(); g_pDeskDupl = nullptr; }
-    if (g_pCaptureBuffer) { delete[] g_pCaptureBuffer; g_pCaptureBuffer = nullptr; g_captureBufferSize = 0; }
-    if (g_pD3DImmediateContext) { g_pD3DImmediateContext->Release(); g_pD3DImmediateContext = nullptr; }
-    if (g_pD3DDevice) { g_pD3DDevice->Release(); g_pD3DDevice = nullptr; }
-    cv::destroyAllWindows(); // Destroy all OpenCV windows
-    std::cout << "Screen Capture cleaned up." << std::endl;
+void CaptureFrame() {
+    if (!game_window_hwnd || !IsWindow(game_window_hwnd)) { 
+        std::cerr << "Game window not found or closed. Attempting to reinitialize capture..." << std::endl;
+        CleanupScreenCapture(); 
+        if (!InitializeScreenCapture(CAPTURE_WINDOW_TITLE)) {
+            captured_frame = cv::Mat::zeros(480, 640, CV_8UC3); 
+            cv::putText(captured_frame, "Capture Error - Window Lost", cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0,0,255), 2);
+            return;
+        }
+    }
+    
+    RECT current_rect;
+     GetClientRect(game_window_hwnd, ¤t_rect); // <--- 正确的调用
+    int new_width = current_rect.right - current_rect.left;
+    int new_height = current_rect.bottom - current_rect.top;
+
+    if (new_width != frame_width || new_height != frame_height) {
+        if (new_width > 0 && new_height > 0) {
+            std::cout << "Window resized to " << new_width << "x" << new_height << ". Reinitializing capture..." << std::endl;
+            CleanupScreenCapture();
+            if (!InitializeScreenCapture(CAPTURE_WINDOW_TITLE)) { 
+                captured_frame = cv::Mat::zeros(480, 640, CV_8UC3);
+                cv::putText(captured_frame, "Capture Re-init Error", cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0,0,255), 2);
+                return;
+            }
+        } else {
+            captured_frame = cv::Mat::zeros(480, 640, CV_8UC3);
+            cv::putText(captured_frame, "Invalid Window Size", cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0,0,255), 2);
+            return;
+        }
+    }
+
+    if (!BitBlt(compatible_hdc, 0, 0, frame_width, frame_height, game_window_hdc, 0, 0, SRCCOPY)) {
+        return; 
+    }
+    if (captured_frame.empty() || captured_frame.cols != frame_width || captured_frame.rows != frame_height || captured_frame.type() != CV_8UC4) {
+         captured_frame.create(frame_height, frame_width, CV_8UC4); 
+    }
+    GetDIBits(compatible_hdc, compatible_bitmap, 0, (UINT)frame_height, captured_frame.data, (BITMAPINFO*)&bi, DIB_RGB_COLORS);
 }
 
-void PollAndMapController() {
-    if (!g_pJoystick) return;
+void CleanupScreenCapture() {
+    if (compatible_bitmap) { DeleteObject(compatible_bitmap); compatible_bitmap = nullptr; }
+    if (compatible_hdc) { DeleteDC(compatible_hdc); compatible_hdc = nullptr; }
+    if (game_window_hwnd && game_window_hdc) { ReleaseDC(game_window_hwnd, game_window_hdc); game_window_hdc = nullptr; }
+    std::cout << "Screen capture GDI objects cleaned up." << std::endl;
+}
+
+// --- FPS and Channel Info Drawing ---
+void DrawFrameInfo(cv::Mat& frame_to_draw) {
+    if (frame_to_draw.empty() || frame_to_draw.cols <=0 || frame_to_draw.rows <=0) {
+        return;
+    }
+
+    int font_face = cv::FONT_HERSHEY_SIMPLEX;
+    double font_scale = 0.5; 
+    int thickness = 1;
+    cv::Scalar text_color(0, 255, 0); 
+    cv::Scalar bg_color(0,0,0); 
+
+    frame_counter_fps++;
+    auto current_time = std::chrono::steady_clock::now();
+    double elapsed_seconds = std::chrono::duration_cast<std::chrono::duration<double>>(current_time - last_fps_time_point).count();
+
+    if (elapsed_seconds >= 1.0) {
+        display_fps = static_cast<double>(frame_counter_fps) / elapsed_seconds;
+        frame_counter_fps = 0;
+        last_fps_time_point = current_time;
+    }
+
+    std::ostringstream fps_stream;
+    fps_stream << "FPS: " << std::fixed << std::setprecision(1) << display_fps;
+    std::string fps_text = fps_stream.str();
+
+    std::ostringstream channels_stream;
+    channels_stream << "CH1:" << g_joystickState.ch1
+                    << " CH2:" << g_joystickState.ch2
+                    << " CH3:" << g_joystickState.ch3
+                    << " CH4:" << g_joystickState.ch4
+                    << " CH8:" << g_joystickState.ch8;
+    std::string channels_text = channels_stream.str();
+
+    int baseline_fps = 0;
+    cv::Size text_size_fps = cv::getTextSize(fps_text, font_face, font_scale, thickness, &baseline_fps);
+    cv::Point fps_origin(frame_to_draw.cols - text_size_fps.width - 10, frame_to_draw.rows - 10);
+    cv::putText(frame_to_draw, fps_text, fps_origin, font_face, font_scale, text_color, thickness, cv::LINE_AA);
+
+    int baseline_channels = 0;
+    cv::Size text_size_channels = cv::getTextSize(channels_text, font_face, font_scale, thickness, &baseline_channels);
+    cv::Point channels_origin(10, frame_to_draw.rows - 10); 
+    cv::putText(frame_to_draw, channels_text, channels_origin, font_face, font_scale, text_color, thickness, cv::LINE_AA);
+}
+
+// --- Joystick Polling and Virtual Gamepad Update ---
+void PollJoystickAndMapToVirtual() {
+    if (g_pJoystick == nullptr) return;
     HRESULT hr = g_pJoystick->Poll();
     if (FAILED(hr)) {
         hr = g_pJoystick->Acquire();
         while (hr == DIERR_INPUTLOST) hr = g_pJoystick->Acquire();
         if (FAILED(hr)) return;
     }
-    DIJOYSTATE2 rawState;
-    hr = g_pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &rawState);
+    DIJOYSTATE2 js;
+    hr = g_pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js);
     if (FAILED(hr)) return;
 
-    g_physicalControllerState.ch1 = rawState.lX;
-    g_physicalControllerState.ch2 = rawState.lY;
-    g_physicalControllerState.ch3 = rawState.lZ;
-    g_physicalControllerState.ch4 = rawState.lRx;
-    g_physicalControllerState.ch5 = (rawState.rgbButtons[0] & 0x80) != 0;
-    g_physicalControllerState.ch6 = rawState.lRz;
-    g_physicalControllerState.ch7 = rawState.rglSlider[0];
-    g_physicalControllerState.ch8 = rawState.rglSlider[1];
-    g_physicalControllerState.ch9 = rawState.lRy;
-    g_physicalControllerState.ch10 = (rawState.rgbButtons[1] & 0x80) != 0;
+    g_joystickState.ch1 = js.lX;
+    g_joystickState.ch2 = js.lY;
+    g_joystickState.ch3 = js.lZ;
+    g_joystickState.ch4 = js.lRx;
+    g_joystickState.ch5 = (js.rgbButtons[0] & 0x80) ? true : false;
+    g_joystickState.ch6 = js.lRz;
+    g_joystickState.ch7 = js.rglSlider[0];
+    g_joystickState.ch8 = js.rglSlider[1];
+    g_joystickState.ch9 = js.lRy;
+    g_joystickState.ch10 = (js.rgbButtons[1] & 0x80) ? true : false;
 
-    XUSB_REPORT_INIT(&g_virtualControllerReport);
-    auto scale_axis = [](long v) { return static_cast<SHORT>((std::max)(-32767.0, (std::min)(32767.0, static_cast<double>(v) / 1000.0 * 32767.0))); };
-    auto scale_trigger = [](long v) { return static_cast<BYTE>((std::max)(0.0, (std::min)(255.0, (static_cast<double>(v) + 1000.0) / 2000.0 * 255.0))); };
+    XUSB_REPORT_INIT(&g_virtualReport);
+    auto scale_axis = [](long val) -> SHORT {
+        double scaled_val = static_cast<double>(val) / 1000.0 * 32767.0;
+        return static_cast<SHORT>(std::max(-32767.0, std::min(32767.0, scaled_val)));
+    };
+    auto scale_trigger = [](long val) -> BYTE {
+        double scaled_val = (static_cast<double>(val) + 1000.0) / 2000.0 * 255.0;
+        return static_cast<BYTE>(std::max(0.0, std::min(255.0, scaled_val)));
+    };
 
-    // Your specified mapping:
-    g_virtualControllerReport.sThumbLX = scale_axis(g_physicalControllerState.ch4);      // Left Stick X: ch4 (lRx)
-    g_virtualControllerReport.sThumbLY = scale_axis(g_physicalControllerState.ch3 * -1);  // Left Stick Y: ch3 (lZ), inverted
-    g_virtualControllerReport.sThumbRX = scale_axis(g_physicalControllerState.ch1);      // Right Stick X: ch1 (lX)
-    g_virtualControllerReport.sThumbRY = scale_axis(g_physicalControllerState.ch2 * -1);  // Right Stick Y: ch2 (lY), inverted
-    g_virtualControllerReport.bLeftTrigger = scale_trigger(g_physicalControllerState.ch6); // Left Trigger: ch6 (lRz)
-    g_virtualControllerReport.bRightTrigger = scale_trigger(g_physicalControllerState.ch7);// Right Trigger: ch7 (Slider1)
+    g_virtualReport.sThumbLX = scale_axis(g_joystickState.ch1);
+    g_virtualReport.sThumbLY = scale_axis(g_joystickState.ch2 * -1);
+    g_virtualReport.sThumbRX = scale_axis(g_joystickState.ch4);
+    g_virtualReport.sThumbRY = scale_axis(g_joystickState.ch9 * -1);
+    g_virtualReport.bLeftTrigger  = scale_trigger(g_joystickState.ch3);
+    g_virtualReport.bRightTrigger = scale_trigger(g_joystickState.ch6);
+    if (g_joystickState.ch5) g_virtualReport.wButtons |= XUSB_GAMEPAD_A;
+    if (g_joystickState.ch10) g_virtualReport.wButtons |= XUSB_GAMEPAD_B;
+    if (g_joystickState.ch7 > 500) g_virtualReport.wButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
+    if (g_joystickState.ch8 > 500) g_virtualReport.wButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
 
-    if (g_physicalControllerState.ch5)  g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_A; // Button A: ch5
-    if (g_physicalControllerState.ch10) g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_B; // Button B: ch10
-
-    // LB: ch8 (Slider2) - treat as button, pressed if value > threshold (e.g., 0 or 500)
-    if (g_physicalControllerState.ch8 > 500) g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
-    // RB: ch9 (lRy) - treat as button, pressed if value > threshold (e.g., 500)
-    if (g_physicalControllerState.ch9 > 500) g_virtualControllerReport.wButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
-
-
-    if (g_pVigemClient && g_pTargetX360) {
-        vigem_target_x360_update(g_pVigemClient, g_pTargetX360, g_virtualControllerReport);
+    if (g_pVigem && g_pTargetX360) {
+        vigem_target_x360_update(g_pVigem, g_pTargetX360, g_virtualReport);
     }
-}
-
-bool CaptureAndDisplayFrame() {
-    if (!g_pDeskDupl) return false;
-    IDXGIResource* pDesktopResource = nullptr;
-    DXGI_OUTDUPL_FRAME_INFO frameInfo;
-    HRESULT hr = g_pDeskDupl->AcquireNextFrame(1, &frameInfo, &pDesktopResource); // 1ms timeout
-
-    if (hr == DXGI_ERROR_WAIT_TIMEOUT) return true; // No new frame yet, not an error
-    if (FAILED(hr)) {
-        if (hr == DXGI_ERROR_ACCESS_LOST) {
-            std::cerr << "Screen Capture: Access lost. Attempting to reinitialize..." << std::endl;
-            CleanupScreenCapture(); // Release old resources
-            if (!InitializeScreenCapture()) { // Try to re-init
-                 std::cerr << "Screen Capture: Reinitialization failed." << std::endl;
-                 return false; // Critical if re-init fails
-            }
-            return true; // Re-initialized, try next frame
-        }
-        std::cerr << "Error: AcquireNextFrame failed! HR: " << hr << std::endl;
-        return false;
-    }
-
-    ID3D11Texture2D* pAcquiredDesktopImage = nullptr;
-    hr = pDesktopResource->QueryInterface(__uuidof(ID3D11Texture2D), (void**)&pAcquiredDesktopImage);
-    pDesktopResource->Release();
-    if (FAILED(hr)) { g_pDeskDupl->ReleaseFrame(); return false; }
-
-    D3D11_TEXTURE2D_DESC frameDesc;
-    pAcquiredDesktopImage->GetDesc(&frameDesc);
-
-    ID3D11Texture2D* pStagingTexture = nullptr;
-    D3D11_TEXTURE2D_DESC stagingDesc = frameDesc;
-    stagingDesc.Usage = D3D11_USAGE_STAGING;
-    stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-    stagingDesc.BindFlags = 0;
-    stagingDesc.MiscFlags = 0;
-    hr = g_pD3DDevice->CreateTexture2D(&stagingDesc, nullptr, &pStagingTexture);
-    if (FAILED(hr)) { pAcquiredDesktopImage->Release(); g_pDeskDupl->ReleaseFrame(); return false; }
-
-    g_pD3DImmediateContext->CopyResource(pStagingTexture, pAcquiredDesktopImage);
-    pAcquiredDesktopImage->Release();
-
-    D3D11_MAPPED_SUBRESOURCE mappedResource;
-    hr = g_pD3DImmediateContext->Map(pStagingTexture, 0, D3D11_MAP_READ, 0, &mappedResource);
-    if (FAILED(hr)) { pStagingTexture->Release(); g_pDeskDupl->ReleaseFrame(); return false; }
-
-    if (frameDesc.Format == DXGI_FORMAT_B8G8R8A8_UNORM) {
-        // Create a Mat pointing to the data, then clone it
-        cv::Mat tempMat(frameDesc.Height, frameDesc.Width, CV_8UC4, mappedResource.pData, mappedResource.RowPitch);
-        g_capturedFrameMat = tempMat.clone(); // Clone is important!
-    } else {
-        std::cerr << "Warning: Captured frame format is not BGRA8. Format: " << frameDesc.Format << std::endl;
-    }
-
-    g_pD3DImmediateContext->Unmap(pStagingTexture, 0);
-    pStagingTexture->Release();
-    g_pDeskDupl->ReleaseFrame();
-
-    if (!g_capturedFrameMat.empty()) {
-        cv::Mat displayedFrame;
-        double original_width = g_capturedFrameMat.cols;
-        double original_height = g_capturedFrameMat.rows;
-        int target_width = 600; // Your desired target width
-
-        if (original_width > target_width) { // Only resize if wider than target
-            double scale_factor = static_cast<double>(target_width) / original_width;
-            int target_height = static_cast<int>(original_height * scale_factor);
-            cv::resize(g_capturedFrameMat, displayedFrame, cv::Size(target_width, target_height), 0, 0, cv::INTER_AREA);
-        } else {
-            displayedFrame = g_capturedFrameMat; // No need to resize if already smaller or equal
-        }
-        cv::imshow(g_opencvWindowName, displayedFrame);
-    }
-    return true;
-}
-
-void PrintControllerStates() { // Optional, call if needed for debugging
-    system("cls");
-    std::cout << "--- Physical Controller (RemoteChannels) ---" << std::endl;
-    std::cout << "ch1(lX): " << g_physicalControllerState.ch1 << "  ch2(lY): " << g_physicalControllerState.ch2
-              << "  ch3(lZ): " << g_physicalControllerState.ch3 << "  ch4(lRx): " << g_physicalControllerState.ch4 << std::endl;
-    std::cout << "ch5(B0): " << (g_physicalControllerState.ch5?"ON":"OFF") << "  ch6(lRz): " << g_physicalControllerState.ch6
-              << "  ch7(Sl0): " << g_physicalControllerState.ch7 << "  ch8(Sl1): " << g_physicalControllerState.ch8 << std::endl;
-    std::cout << "ch9(lRy): " << g_physicalControllerState.ch9 << "  ch10(B1): " << (g_physicalControllerState.ch10?"ON":"OFF") << std::endl;
-    std::cout << "\n--- Virtual Xbox 360 ---" << std::endl;
-    std::cout << "LX: " << g_virtualControllerReport.sThumbLX << " LY: " << g_virtualControllerReport.sThumbLY
-              << " RX: " << g_virtualControllerReport.sThumbRX << " RY: " << g_virtualControllerReport.sThumbRY << std::endl;
-    std::cout << "LT: " << (int)g_virtualControllerReport.bLeftTrigger << " RT: " << (int)g_virtualControllerReport.bRightTrigger
-              << " Buttons: 0x" << std::hex << g_virtualControllerReport.wButtons << std::dec << std::endl;
-    std::cout << "----------------------------------------------------" << std::endl;
 }
 
 
 int main() {
-    std::cout << "Starting SimApp..." << std::endl;
+    HWND hDummyWnd = CreateDummyWindow();
+    if (!hDummyWnd) return 1;
 
-    if (!CreateDummyWindow()) return 1; // CreateDummyWindow now sets g_hDummyWindow
-
-    if (!InitializeDirectInput()) { CleanupDirectInput(); DestroyWindow(g_hDummyWindow); return 1; }
-    if (!InitializeVirtualGamepad()) { CleanupDirectInput(); CleanupVirtualGamepad(); DestroyWindow(g_hDummyWindow); return 1; }
-    if (!InitializeScreenCapture()) {
-        CleanupDirectInput(); CleanupVirtualGamepad(); CleanupScreenCapture(); DestroyWindow(g_hDummyWindow); return 1;
+    if (!InitializeDirectInput(hDummyWnd)) {
+        CleanupDirectInput(); DestroyWindow(hDummyWnd); return 1;
+    }
+    if (!InitializeVirtualGamepad()) {
+        CleanupDirectInput(); CleanupVirtualGamepad(); DestroyWindow(hDummyWnd); return 1;
+    }
+    if (!InitializeScreenCapture(CAPTURE_WINDOW_TITLE)) { 
+        std::cerr << "Screen capture could not be initialized. Exiting." << std::endl;
+        CleanupDirectInput(); CleanupVirtualGamepad(); DestroyWindow(hDummyWnd); return 1;
     }
 
-    std::cout << "\nInitialization Complete. Running..." << std::endl;
-    std::cout << "Press CTRL+Q to quit." << std::endl;
+    last_fps_time_point = std::chrono::steady_clock::now();
+    cv::namedWindow(PREVIEW_WINDOW_NAME, cv::WINDOW_AUTOSIZE);
+
+    std::cout << "All systems initialized. Reading input, capturing screen, and updating virtual gamepad..." << std::endl;
+    std::cout << "Game Window: " << CAPTURE_WINDOW_TITLE << std::endl;
+    std::cout << "Preview Window: " << PREVIEW_WINDOW_NAME << std::endl;
+    std::cout << "Press ESC in preview window or close it to quit." << std::endl;
 
     while (true) {
-        PollAndMapController();
-        if (!CaptureAndDisplayFrame()) {
-            // Potentially handle critical capture error, e.g., by trying to re-init less aggressively or exiting
-            std::cerr << "A screen capture error occurred that might require attention." << std::endl;
+        PollJoystickAndMapToVirtual();
+        CaptureFrame(); 
+
+        if (!captured_frame.empty()) {
+            DrawFrameInfo(captured_frame); 
+            cv::imshow(PREVIEW_WINDOW_NAME, captured_frame);
+        } else {
+            cv::Mat error_img = cv::Mat::zeros(480, 640, CV_8UC3);
+            cv::putText(error_img, "Waiting for frame...", cv::Point(10,30), cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(255,255,255), 2);
+            cv::imshow(PREVIEW_WINDOW_NAME, error_img);
         }
 
-        int key = cv::waitKey(1); // Essential for imshow and window events
-        if (key == 'q' || key == 'Q' || key == 27) { // Allow q/Q or ESC from OpenCV window to quit
-             std::cout << "Quit key pressed in OpenCV window. Exiting..." << std::endl;
+        int key = cv::waitKey(1); 
+        if (key == 27 || cv::getWindowProperty(PREVIEW_WINDOW_NAME, cv::WND_PROP_VISIBLE) < 1) {
+            std::cout << "Exit requested via preview window." << std::endl;
             break;
         }
-
-        if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) && (GetAsyncKeyState('Q') & 0x8000)) {
-            std::cout << "CTRL+Q pressed. Exiting..." << std::endl;
-            break;
-        }
-        // PrintControllerStates(); // Uncomment for debugging controller values
     }
 
     CleanupScreenCapture();
-    CleanupVirtualGamepad();
     CleanupDirectInput();
-    if (g_hDummyWindow) DestroyWindow(g_hDummyWindow);
-
-    std::cout << "Application terminated." << std::endl;
+    CleanupVirtualGamepad();
+    DestroyWindow(hDummyWnd);
+    cv::destroyAllWindows();
+    std::cout << "Exiting." << std::endl;
     return 0;
 }

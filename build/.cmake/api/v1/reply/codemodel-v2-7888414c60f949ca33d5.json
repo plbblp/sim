@@ -29,7 +29,7 @@
 					[
 						0
 					],
-					"name" : "SimProject",
+					"name" : "JoystickReaderProject",
 					"targetIndexes" : 
 					[
 						0,
@@ -43,15 +43,15 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-Debug-e1f7fc068b82a282b926.json",
+					"jsonFile" : "target-ALL_BUILD-Debug-12815f429460ff7de0e8.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "SimApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-SimApp-Debug-0c0475cd623beb574a8f.json",
-					"name" : "SimApp",
+					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-JoystickReaderApp-Debug-bf1d27393ac140ffab21.json",
+					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
 				{
@@ -91,7 +91,7 @@
 					[
 						0
 					],
-					"name" : "SimProject",
+					"name" : "JoystickReaderProject",
 					"targetIndexes" : 
 					[
 						0,
@@ -105,15 +105,15 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-Release-e1f7fc068b82a282b926.json",
+					"jsonFile" : "target-ALL_BUILD-Release-12815f429460ff7de0e8.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "SimApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-SimApp-Release-a948680023f8d83af37b.json",
-					"name" : "SimApp",
+					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-JoystickReaderApp-Release-78f1e2aebe78572e1d77.json",
+					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
 				{
@@ -153,7 +153,7 @@
 					[
 						0
 					],
-					"name" : "SimProject",
+					"name" : "JoystickReaderProject",
 					"targetIndexes" : 
 					[
 						0,
@@ -167,15 +167,15 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-MinSizeRel-e1f7fc068b82a282b926.json",
+					"jsonFile" : "target-ALL_BUILD-MinSizeRel-12815f429460ff7de0e8.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "SimApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-SimApp-MinSizeRel-fb8c62d7e23d4a50bb2e.json",
-					"name" : "SimApp",
+					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-JoystickReaderApp-MinSizeRel-3abe3f7c440e0f3a6d59.json",
+					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
 				{
@@ -215,7 +215,7 @@
 					[
 						0
 					],
-					"name" : "SimProject",
+					"name" : "JoystickReaderProject",
 					"targetIndexes" : 
 					[
 						0,
@@ -229,15 +229,15 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "ALL_BUILD::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-ALL_BUILD-RelWithDebInfo-e1f7fc068b82a282b926.json",
+					"jsonFile" : "target-ALL_BUILD-RelWithDebInfo-12815f429460ff7de0e8.json",
 					"name" : "ALL_BUILD",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "SimApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-SimApp-RelWithDebInfo-ab7f4effe2f4c50fb265.json",
-					"name" : "SimApp",
+					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-JoystickReaderApp-RelWithDebInfo-b6b491638eb3be43b30b.json",
+					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
 				{

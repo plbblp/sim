@@ -2,10 +2,10 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "MinSizeRel/SimApp.exe"
+			"path" : "Release/JoystickReaderApp.exe"
 		},
 		{
-			"path" : "MinSizeRel/SimApp.pdb"
+			"path" : "Release/JoystickReaderApp.pdb"
 		}
 	],
 	"backtrace" : 2,
@@ -17,7 +17,6 @@
 			"add_executable",
 			"link_directories",
 			"target_link_libraries",
-			"add_compile_options",
 			"include_directories"
 		],
 		"files" : 
@@ -33,7 +32,7 @@
 			{
 				"command" : 1,
 				"file" : 1,
-				"line" : 63,
+				"line" : 49,
 				"parent" : 0
 			},
 			{
@@ -45,31 +44,25 @@
 			{
 				"command" : 2,
 				"file" : 1,
-				"line" : 42,
+				"line" : 20,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 1,
-				"line" : 68,
+				"line" : 62,
 				"parent" : 0
 			},
 			{
 				"command" : 4,
 				"file" : 1,
-				"line" : 8,
+				"line" : 19,
 				"parent" : 0
 			},
 			{
-				"command" : 5,
+				"command" : 4,
 				"file" : 1,
-				"line" : 41,
-				"parent" : 0
-			},
-			{
-				"command" : 5,
-				"file" : 1,
-				"line" : 53,
+				"line" : 28,
 				"parent" : 0
 			}
 		]
@@ -80,25 +73,17 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O1 /Ob1 /DNDEBUG -std:c++17"
-				},
-				{
-					"backtrace" : 5,
-					"fragment" : "/source-charset:utf-8"
-				},
-				{
-					"backtrace" : 5,
-					"fragment" : "/execution-charset:utf-8"
+					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O2 /Ob2 /DNDEBUG -std:c++17"
 				}
 			],
 			"includes" : 
 			[
 				{
-					"backtrace" : 6,
+					"backtrace" : 5,
 					"path" : "D:/CTZH/sim/libs/ViGEm/include"
 				},
 				{
-					"backtrace" : 7,
+					"backtrace" : 6,
 					"isSystem" : true,
 					"path" : "D:/CTZH/vcpkg/vcpkg/installed/x64-windows/include/opencv4"
 				}
@@ -124,13 +109,13 @@
 			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"
 		}
 	],
-	"id" : "SimApp::@6890427a1f51a3e7e1df",
+	"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
 	"link" : 
 	{
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O1 /Ob1 /DNDEBUG",
+				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O2 /Ob2 /DNDEBUG",
 				"role" : "flags"
 			},
 			{
@@ -143,7 +128,7 @@
 			},
 			{
 				"backtrace" : 3,
-				"fragment" : "-LIBPATH:D:\\CTZH\\sim\\libs\\ViGEm\\bin\\release\\x64",
+				"fragment" : "-LIBPATH:D:\\CTZH\\sim\\libs\\ViGEm\\lib\\release\\x64",
 				"role" : "libraryPath"
 			},
 			{
@@ -203,16 +188,6 @@
 			},
 			{
 				"backtrace" : 4,
-				"fragment" : "dxgi.lib",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 4,
-				"fragment" : "d3d11.lib",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 4,
 				"fragment" : "D:\\CTZH\\vcpkg\\vcpkg\\installed\\x64-windows\\lib\\opencv_imgcodecs4.lib",
 				"role" : "libraries"
 			},
@@ -253,8 +228,8 @@
 		],
 		"language" : "CXX"
 	},
-	"name" : "SimApp",
-	"nameOnDisk" : "SimApp.exe",
+	"name" : "JoystickReaderApp",
+	"nameOnDisk" : "JoystickReaderApp.exe",
 	"paths" : 
 	{
 		"build" : ".",

@@ -443,7 +443,7 @@
 				}
 			],
 			"type" : "PATH",
-			"value" : "C:/Program Files/SimProject"
+			"value" : "C:/Program Files/JoystickReaderProject"
 		},
 		{
 			"name" : "CMAKE_LINKER",
@@ -627,7 +627,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "SimProject"
+			"value" : "JoystickReaderProject"
 		},
 		{
 			"name" : "CMAKE_RANLIB",
@@ -1034,6 +1034,42 @@
 			"value" : "[TRUE][v()]"
 		},
 		{
+			"name" : "JoystickReaderProject_BINARY_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "D:/CTZH/sim/build"
+		},
+		{
+			"name" : "JoystickReaderProject_IS_TOP_LEVEL",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "ON"
+		},
+		{
+			"name" : "JoystickReaderProject_SOURCE_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Value Computed by CMake"
+				}
+			],
+			"type" : "STATIC",
+			"value" : "D:/CTZH/sim"
+		},
+		{
 			"name" : "OpenCV_DIR",
 			"properties" : 
 			[
@@ -1164,42 +1200,6 @@
 			],
 			"type" : "UNINITIALIZED",
 			"value" : ""
-		},
-		{
-			"name" : "SimProject_BINARY_DIR",
-			"properties" : 
-			[
-				{
-					"name" : "HELPSTRING",
-					"value" : "Value Computed by CMake"
-				}
-			],
-			"type" : "STATIC",
-			"value" : "D:/CTZH/sim/build"
-		},
-		{
-			"name" : "SimProject_IS_TOP_LEVEL",
-			"properties" : 
-			[
-				{
-					"name" : "HELPSTRING",
-					"value" : "Value Computed by CMake"
-				}
-			],
-			"type" : "STATIC",
-			"value" : "ON"
-		},
-		{
-			"name" : "SimProject_SOURCE_DIR",
-			"properties" : 
-			[
-				{
-					"name" : "HELPSTRING",
-					"value" : "Value Computed by CMake"
-				}
-			],
-			"type" : "STATIC",
-			"value" : "D:/CTZH/sim"
 		},
 		{
 			"name" : "TIFF_INCLUDE_DIR",

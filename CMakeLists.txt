@@ -1,118 +1,79 @@
-cmake_minimum_required(VERSION 3.10)
-project(SimProject LANGUAGES CXX)
+﻿cmake_minimum_required(VERSION 3.10)
+project(JoystickReaderProject LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-set(CMAKE_VERBOSE_MAKEFILE ON) # More output during build
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
-add_compile_options(/source-charset:utf-8 /execution-charset:utf-8)
+message(STATUS "CMakeLists.txt processing started.")
+message(STATUS "Project Source Directory: ${CMAKE_CURRENT_SOURCE_DIR}")
 
-# --- Windows Specific Settings ---
-if(MSVC)
-    message(STATUS "MSVC compiler detected.")
-    # NOMINMAX should be defined in main.cpp, but can also be added here if needed globally
-    # add_definitions(-DNOMINMAX)
-    # Ensure source files are treated as UTF-8 by the compiler (helps with C4819)
-    add_compile_options(/source-charset:utf-8 /execution-charset:utf-8)
-else()
-    message(WARNING "Non-MSVC compiler detected. Ensure library compatibility.")
-endif()
-
-# --- ViGEmClient SDK Paths (assuming current structure) ---
-set(VIGEM_SDK_BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/ViGEm")
-set(VIGEM_INCLUDE_DIR "${VIGEM_SDK_BASE_DIR}/include")
-
-# --- Determine ViGEm Library and DLL paths based on build type ---
-# We'll default to Debug for now, you can expand this for Release
-# Ensure you have the corresponding Release .lib and .dll if you build in Release mode
-if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR NOT CMAKE_BUILD_TYPE) # Default to Debug if not set
-    set(VIGEM_LIBRARY_DIR "${VIGEM_SDK_BASE_DIR}/bin/release/x64")
-    set(VIGEM_DLL_DIR "${VIGEM_SDK_BASE_DIR}/bin/release/x64")
-    message(STATUS "ViGEm SDK Paths (Debug):")
-else() # Assuming Release or other
-    set(VIGEM_LIBRARY_DIR "${VIGEM_SDK_BASE_DIR}/bin/release/x64") # Assuming you have these
-    set(VIGEM_DLL_DIR "${VIGEM_SDK_BASE_DIR}/bin/release/x64")   # Assuming you have these
-    message(STATUS "ViGEm SDK Paths (Release or other):")
-endif()
-message(STATUS "  Include Dir: ${VIGEM_INCLUDE_DIR}")
-message(STATUS "  Library Dir: ${VIGEM_LIBRARY_DIR}")
-message(STATUS "  DLL Dir: ${VIGEM_DLL_DIR}")
+# --- ViGEmClient SDK Paths ---
+set(VIGEM_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libs/ViGEm/include")
+message(STATUS "ViGEm Include Dir: ${VIGEM_INCLUDE_DIR}")
+set(VIGEM_LIBRARY_DIR_DEBUG_X64 "${CMAKE_CURRENT_SOURCE_DIR}/libs/ViGEm/lib/release/x64")
+message(STATUS "ViGEm Library Dir (Debug x64): ${VIGEM_LIBRARY_DIR_DEBUG_X64}")
+set(VIGEM_DLL_DIR_DEBUG_X64 "${CMAKE_CURRENT_SOURCE_DIR}/libs/ViGEm/bin/release/x64")
+message(STATUS "ViGEm DLL Dir (Debug x64): ${VIGEM_DLL_DIR_DEBUG_X64}")
 
 include_directories(${VIGEM_INCLUDE_DIR})
-link_directories(${VIGEM_LIBRARY_DIR}) # For ViGEmClient.lib
+link_directories(${VIGEM_LIBRARY_DIR_DEBUG_X64})
 
 # --- OpenCV ---
-# Assuming CMAKE_TOOLCHAIN_FILE is set in VSCode settings to point to vcpkg.cmake
+# 尝试找到OpenCV包。如果CMake找不到，您可能需要设置 OpenCV_DIR 环境变量
+# 或者在CMake配置时通过 -DOpenCV_DIR=/path/to/opencv/build 传递
 find_package(OpenCV REQUIRED)
-
 if(OpenCV_FOUND)
-    message(STATUS "OpenCV found via vcpkg.")
-    message(STATUS "OpenCV Version: ${OpenCV_VERSION}")
-    message(STATUS "OpenCV Include Dirs: ${OpenCV_INCLUDE_DIRS}")
-    message(STATUS "OpenCV Libraries: ${OpenCV_LIBS}")
-    include_directories(${OpenCV_INCLUDE_DIRS}) # Add OpenCV include dirs
+    message(STATUS "OpenCV found. Version: ${OpenCV_VERSION}")
+    include_directories(${OpenCV_INCLUDE_DIRS}) # 添加OpenCV的包含目录
 else()
-    message(FATAL_ERROR "OpenCV not found. Ensure CMAKE_TOOLCHAIN_FILE is set correctly for vcpkg and OpenCV is installed via vcpkg.")
+    message(FATAL_ERROR "OpenCV not found. Please ensure OpenCV is installed and CMake can find it.")
 endif()
 
 
-# --- Main Program ---
-set(EXECUTABLE_NAME "SimApp")
+if(MSVC)
+    message(STATUS "MSVC compiler detected.")
+else()
+    message(WARNING "Non-MSVC compiler detected. Ensure ViGEmClient library compatibility.")
+endif()
+
+# --- 主程序 ---
+set(EXECUTABLE_NAME "JoystickReaderApp")
 set(SOURCE_FILE "main.cpp")
 
+message(STATUS "Attempting to add executable '${EXECUTABLE_NAME}' with source '${SOURCE_FILE}'")
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE_FILE}")
+    message(FATAL_ERROR "Source file '${SOURCE_FILE}' not found in '${CMAKE_CURRENT_SOURCE_DIR}'. Please check the file name and location.")
+endif()
+
 add_executable(${EXECUTABLE_NAME} ${SOURCE_FILE})
+message(STATUS "add_executable for '${EXECUTABLE_NAME}' called.")
 
-# --- Link Libraries ---
-set(DX_LIBS dxgi d3d11) # DirectX libraries for Desktop Duplication API
+if(TARGET ${EXECUTABLE_NAME})
+    message(STATUS "Target '${EXECUTABLE_NAME}' successfully created by CMake.")
+else()
+    message(FATAL_ERROR "Target '${EXECUTABLE_NAME}' was NOT created by CMake after add_executable. This is the primary issue.")
+endif()
 
-target_link_libraries(${EXECUTABLE_NAME} PRIVATE
-    dinput8      # DirectInput
-    dxguid       # GUIDs for DirectX components
-    user32       # Windows User API (CreateWindow, GetAsyncKeyState, etc.)
-    ViGEmClient  # ViGEm SDK library
-    ${OpenCV_LIBS} # OpenCV libraries (resolved by find_package)
-    ${DX_LIBS}     # DirectX libraries (dxgi.lib, d3d11.lib)
-)
+# --- 链接库 ---
+message(STATUS "Attempting to link libraries to '${EXECUTABLE_NAME}'")
+# 链接 DirectInput, User32, ViGEmClient, 和 OpenCV
+# OpenCV_LIBS 变量由 find_package(OpenCV) 设置，包含了所有需要的OpenCV模块
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE dinput8 dxguid user32 ViGEmClient ${OpenCV_LIBS})
+message(STATUS "target_link_libraries for '${EXECUTABLE_NAME}' called successfully.")
 
 # --- Post-build step to copy ViGEmClient.dll ---
-set(VIGEM_DLL_FILE_TO_COPY "${VIGEM_DLL_DIR}/ViGEmClient.dll")
-if(EXISTS "${VIGEM_DLL_FILE_TO_COPY}")
-    message(STATUS "ViGEmClient.dll found at ${VIGEM_DLL_FILE_TO_COPY}, will attempt to copy.")
+set(VIGEM_DLL_FILE_DEBUG_X64 "${VIGEM_DLL_DIR_DEBUG_X64}/ViGEmClient.dll")
+if(EXISTS "${VIGEM_DLL_FILE_DEBUG_X64}")
+    message(STATUS "ViGEmClient.dll found at ${VIGEM_DLL_FILE_DEBUG_X64}, will attempt to copy.")
     add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${VIGEM_DLL_FILE_TO_COPY}"
+        "${VIGEM_DLL_FILE_DEBUG_X64}"
         $<TARGET_FILE_DIR:${EXECUTABLE_NAME}>
         COMMENT "Copying ViGEmClient.dll to output directory"
     )
 else()
-    message(WARNING "ViGEmClient.dll NOT found at ${VIGEM_DLL_FILE_TO_COPY}. Runtime may fail. Check VIGEM_DLL_DIR and build type.")
+    message(WARNING "ViGEmClient.dll NOT found at ${VIGEM_DLL_FILE_DEBUG_X64}. Runtime will likely fail.")
 endif()
-
-# --- OpenCV DLLs ---
-# When using vcpkg with dynamic linking (default x64-windows), the OpenCV DLLs
-# are in vcpkg's installed bin directory (e.g., vcpkg_root/installed/x64-windows/bin).
-# For the application to run, this directory needs to be in the system PATH,
-# or the necessary DLLs must be copied to the executable's directory.
-# VSCode's CMake Tools extension often handles this for debugging sessions if vcpkg is integrated.
-# For standalone execution, ensure PATH is set or copy DLLs.
-# Example of copying one common OpenCV DLL (you might need more or opencv_worldXXXd.dll):
-# You'd need to know the exact DLL name and find it within vcpkg's installed tree.
-# This is more robustly handled by ensuring vcpkg's bin path is in the system PATH.
-#
-# if(OpenCV_FOUND AND WIN32)
-#     # This is a simplified example and might need adjustment for specific OpenCV DLLs and paths
-#     # It's often better to add vcpkg's bin directory to the PATH for development.
-#     file(GLOB OpenCV_RUNTIME_DLLS "${OpenCV_DIR}/../../../bin/opencv_world${OpenCV_VERSION_MAJOR}${OpenCV_VERSION_MINOR}${OpenCV_VERSION_PATCH}d.dll") # Example for debug world dll
-#     if(OpenCV_RUNTIME_DLLS)
-#         add_custom_command(TARGET ${EXECUTABLE_NAME} POST_BUILD
-#             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-#             ${OpenCV_RUNTIME_DLLS}
-#             $<TARGET_FILE_DIR:${EXECUTABLE_NAME}>
-#             COMMENT "Copying OpenCV DLLs to output directory"
-#         )
-#     else()
-#         message(WARNING "Could not automatically find OpenCV runtime DLLs to copy. Ensure they are in PATH or copied manually.")
-#     endif()
-# endif()
 
 message(STATUS "CMakeLists.txt processing finished.")

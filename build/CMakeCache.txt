@@ -62,7 +62,7 @@ CMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE
 CMAKE_FIND_PACKAGE_REDIRECTS_DIR:STATIC=D:/CTZH/sim/build/CMakeFiles/pkgRedirects
 
 //Install path prefix, prepended onto install directories.
-CMAKE_INSTALL_PREFIX:PATH=C:/Program Files/SimProject
+CMAKE_INSTALL_PREFIX:PATH=C:/Program Files/JoystickReaderProject
 
 //Path to a program.
 CMAKE_LINKER:FILEPATH=C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/link.exe
@@ -97,7 +97,7 @@ CMAKE_PROJECT_DESCRIPTION:STATIC=
 CMAKE_PROJECT_HOMEPAGE_URL:STATIC=
 
 //Value Computed by CMake
-CMAKE_PROJECT_NAME:STATIC=SimProject
+CMAKE_PROJECT_NAME:STATIC=JoystickReaderProject
 
 //RC compiler
 CMAKE_RC_COMPILER:FILEPATH=C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64/rc.exe
@@ -173,6 +173,15 @@ CMAKE_TOOLCHAIN_FILE:FILEPATH=D:/CTZH/vcpkg/vcpkg/scripts/buildsystems/vcpkg.cma
 // Studio IDE projects all commands are done without /nologo.
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
+//Value Computed by CMake
+JoystickReaderProject_BINARY_DIR:STATIC=D:/CTZH/sim/build
+
+//Value Computed by CMake
+JoystickReaderProject_IS_TOP_LEVEL:STATIC=ON
+
+//Value Computed by CMake
+JoystickReaderProject_SOURCE_DIR:STATIC=D:/CTZH/sim
+
 //The directory containing a CMake configuration file for OpenCV.
 OpenCV_DIR:PATH=D:/CTZH/vcpkg/vcpkg/installed/x64-windows/share/opencv4
 
@@ -181,15 +190,6 @@ Protobuf_DIR:PATH=D:/CTZH/vcpkg/vcpkg/installed/x64-windows/share/protobuf
 
 //Path to a program.
 Protobuf_PROTOC_EXECUTABLE:FILEPATH=D:/CTZH/vcpkg/vcpkg/installed/x64-windows/tools/protobuf/protoc.exe
-
-//Value Computed by CMake
-SimProject_BINARY_DIR:STATIC=D:/CTZH/sim/build
-
-//Value Computed by CMake
-SimProject_IS_TOP_LEVEL:STATIC=ON
-
-//Value Computed by CMake
-SimProject_SOURCE_DIR:STATIC=D:/CTZH/sim
 
 //Path to a file.
 TIFF_INCLUDE_DIR:PATH=D:/CTZH/vcpkg/vcpkg/installed/x64-windows/include
