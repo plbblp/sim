@@ -78,7 +78,7 @@ double pid_previous_error_dx = 0;
 // 垂直方向 (控制 ch3 来修正 dy)
 double pid_kp_dy = 50;  // 比例增益
 double pid_ki_dy = 0.1; // 积分增益
-double pid_kd_dy = 10;  // 微分增益
+double pid_kd_dy = 0;  // 微分增益
 double pid_integral_dy = 0;
 double pid_previous_error_dy = 0;
 
@@ -716,123 +716,87 @@ void update_tracker_and_draw(cv::Mat& frame_to_draw_on) {
 
 void ControlAircraftWithPID() {
     if (!g_current_tracking_offset.is_valid) {
-        // 如果跟踪无效，AI不进行控制或使用默认值
-        // 这里我们将AI的输出设置为中立或基于物理手柄（如果需要混合）
-        // 为简单起见，如果跟踪无效，AI的ch1和ch3也设为0
+        // ... (保持不变：重置ai_joystickState和PID状态) ...
         ai_joystickState.ch1 = 0; 
         ai_joystickState.ch3 = 0;
-        // 其他通道也应设置为安全/默认值
-        ai_joystickState.ch2 = 0; // 按要求
-        ai_joystickState.ch4 = 0; // 按要求
-        // ch5, ch6, ch7, ch8, ch9, ch10 可以根据需要设置为默认值或从g_joystickState获取
-        ai_joystickState.ch5 = g_joystickState.ch5; // 示例：按钮仍然来自物理手柄
-        ai_joystickState.ch6 = 0; // 或其他默认值
+        ai_joystickState.ch2 = g_joystickState.ch5; 
+        ai_joystickState.ch4 = 0; 
+        ai_joystickState.ch5 = g_joystickState.ch5; 
+        ai_joystickState.ch6 = 0; 
         ai_joystickState.ch7 = 0;
         ai_joystickState.ch8 = 0;
         ai_joystickState.ch9 = 0;
         ai_joystickState.ch10 = g_joystickState.ch10;
-
-        // 重置PID积分项和前一个误差，因为目标丢失了
-        pid_integral_dx = 0;
-        pid_previous_error_dx = 0;
-        pid_integral_dy = 0;
-        pid_previous_error_dy = 0;
+        pid_integral_dx = 0; pid_previous_error_dx = 0;
+        pid_integral_dy = 0; pid_previous_error_dy = 0;
         return;
     }
 
-    // 目标是使 dx 和 dy 都为 0
-    double error_dx = static_cast<double>(g_current_tracking_offset.dx); // 当前水平误差
-    double error_dy = static_cast<double>(g_current_tracking_offset.dy); // 当前垂直误差
+    double error_dx = static_cast<double>(g_current_tracking_offset.dx); 
+    double error_dy = static_cast<double>(g_current_tracking_offset.dy); 
 
     // --- PID 计算 for dx (控制 ch1) ---
-    // 积分项 (带抗饱和，可选)
     pid_integral_dx += error_dx;
-    // 可选的积分抗饱和:
-    // if (pid_integral_dx > INTEGRAL_MAX_DX) pid_integral_dx = INTEGRAL_MAX_DX;
-    // else if (pid_integral_dx < INTEGRAL_MIN_DX) pid_integral_dx = INTEGRAL_MIN_DX;
-
-    // 微分项
     double derivative_dx = error_dx - pid_previous_error_dx;
     pid_previous_error_dx = error_dx;
-
-    // PID 输出
     double pid_output_dx = (pid_kp_dx * error_dx) + (pid_ki_dx * pid_integral_dx) + (pid_kd_dx * derivative_dx);
-
-    // 根据控制映射调整输出符号并赋值给 ai_joystickState.ch1
-    // "增大ai_joystickState.ch1的值会使跟踪框在屏幕中向左移动"
-    // 如果 error_dx > 0 (目标在中心右侧)，我们需要向右移动飞机以使目标框左移。
-    // 这意味着我们需要一个“向右”的控制。如果增大ch1是向左，那么我们需要减小ch1。
-    // 所以，PID输出的符号可能需要反转。
-    // 假设：ch1控制横滚，正值向右滚，负值向左滚。
-    // 如果目标在右边 (error_dx > 0)，我们需要飞机向右滚，所以 ch1 应该是正的。
-    // 因此，如果PID输出 (pid_output_dx) 是基于误差的修正量，且误差定义为 (目标 - 当前)，
-    // 那么 pid_output_dx 的符号可能与 ch1 的期望符号一致或相反，取决于 ch1 的具体作用。
-
-    // 让我们假设：
-    // - ch1 控制横滚，正值使飞机向右滚，使屏幕上的目标（如果飞机是相机）向左移动。
-    // - error_dx = target_x_offset (0) - current_x_offset = -g_current_tracking_offset.dx
-    //   或者更简单：error_dx = g_current_tracking_offset.dx (目标是让这个误差为0)
-    // 如果 g_current_tracking_offset.dx > 0 (目标在右边)，我们需要 ch1 为正值 (向右滚)。
-    // 所以，ai_joystickState.ch1 = pid_output_dx; (假设Kp等参数的符号已正确调整)
-    // **为了简单，我们先假设PID输出的符号直接对应控制量，如果反了，调整Kp的符号或在最后反转输出**
-    ai_joystickState.ch1 = static_cast<long>(pid_output_dx);
+    // 假设增大ch1使目标左移。如果error_dx > 0 (目标在右)，需要增大ch1。
+    // 所以，如果Kp为正，这里的符号可能是对的。如果反了，调整Kp符号或在这里取反。
+    ai_joystickState.ch1 = static_cast<long>(pid_output_dx); 
 
 
     // --- PID 计算 for dy (控制 ch3) ---
-    pid_integral_dy += error_dy;
-    // 可选的积分抗饱和
+    pid_integral_dy += error_dy; 
+    // 可选：更精细的积分抗饱和，例如：
+    // const double MAX_INTEGRAL_DY = 5000.0; // 根据经验设定
+    // pid_integral_dy = std::max(-MAX_INTEGRAL_DY, std::min(MAX_INTEGRAL_DY, pid_integral_dy));
 
     double derivative_dy = error_dy - pid_previous_error_dy;
     pid_previous_error_dy = error_dy;
 
-    double pid_output_dy = -((pid_kp_dy * error_dy) + (pid_ki_dy * pid_integral_dy) + (pid_kd_dy * derivative_dy));
+    double pid_output_dy_raw = (pid_kp_dy * error_dy) + (pid_ki_dy * pid_integral_dy) + (pid_kd_dy * derivative_dy);
+    const long hover_bias_ch3 = 300; // 示例：您实验得到的值
+    // 控制方向调整：增大ch3使目标框向下。
+    // 如果 error_dy > 0 (目标在下方)，我们需要一个使目标框上移的控制，即减小ch3。
+    // 所以，如果 pid_output_dy_raw 为正，我们需要一个负的控制努力。
+    double control_effort_dy = -pid_output_dy_raw; 
 
-    // 根据控制映射调整输出符号并赋值给 ai_joystickState.ch3
-    // "增大ai_joystickState.ch3会使得跟踪框在屏幕中向下移动"
-    // 如果 error_dy > 0 (目标在中心下方)，我们需要向上移动飞机以使目标框上移。
-    // 这意味着我们需要一个“向上”的控制。如果增大ch3是向下，那么我们需要减小ch3。
-    // 假设：ch3控制油门/升降，正值使飞机上升，使屏幕上的目标（如果飞机是相机）向下移动。
-    // 如果目标在下方 (error_dy > 0)，我们需要飞机上升，所以 ch3 应该是正的。
-    // 所以，ai_joystickState.ch3 = pid_output_dy;
-    ai_joystickState.ch3 = static_cast<long>(pid_output_dy);
+    // 可选：添加前馈/偏置 (如果CH3是油门，可能需要一个基础油门值)
+    // const long hover_bias_ch3 = 0; // 如果希望稳定在0，则为0。如果是悬停油门，设为该值。
+    // ai_joystickState.ch3 = static_cast<long>(control_effort_dy) + hover_bias_ch3;
+    ai_joystickState.ch3 = static_cast<long>(control_effort_dy)+hover_bias_ch3; // 当前不加偏置
 
 
     // --- 限幅PID输出 ---
     ai_joystickState.ch1 = std::max(PID_OUTPUT_MIN, std::min(PID_OUTPUT_MAX, ai_joystickState.ch1));
     ai_joystickState.ch3 = std::max(PID_OUTPUT_MIN, std::min(PID_OUTPUT_MAX, ai_joystickState.ch3));
 
-    // --- 其他通道按要求设置为0 ---
-    ai_joystickState.ch2 = 0;
+    // --- 其他通道 ---
+    ai_joystickState.ch2 = g_joystickState.ch2;
     ai_joystickState.ch4 = 0;
-
-    // --- 其他辅助通道可以根据需要设置，例如从物理手柄获取或设为默认 ---
-    // (这些按钮/滑块的AI控制不是当前PID的目标，所以可以先保持不变或来自物理手柄)
-    ai_joystickState.ch5 = g_joystickState.ch5;  // 示例：按钮仍然来自物理手柄
-    ai_joystickState.ch6 = 0; // 或其他默认/安全值
+    ai_joystickState.ch5 = g_joystickState.ch5;  
+    ai_joystickState.ch6 = 0; 
     ai_joystickState.ch7 = 0;
     ai_joystickState.ch8 = 0;
     ai_joystickState.ch9 = 0;
     ai_joystickState.ch10 = g_joystickState.ch10;
 
     // --- 更新PID输出历史数据 ---
-    if (g_current_tracking_offset.is_valid) { // 只在跟踪有效时记录PID输出
-        pid_ch1_history.push_back(ai_joystickState.ch1);
-        if (pid_ch1_history.size() > PLOT_HISTORY_LENGTH) {
-            pid_ch1_history.pop_front(); // 保持队列长度固定
-        }
+    // (保持不变)
+    pid_ch1_history.push_back(ai_joystickState.ch1);
+    if (pid_ch1_history.size() > PLOT_HISTORY_LENGTH) pid_ch1_history.pop_front();
+    pid_ch3_history.push_back(ai_joystickState.ch3);
+    if (pid_ch3_history.size() > PLOT_HISTORY_LENGTH) pid_ch3_history.pop_front();
+// 在 ControlAircraftWithPID() 的末尾，更新历史数据之前
+if (g_current_tracking_offset.is_valid) { // 只在有效时打印
+    std::cout << "PID_DY: err=" << error_dy
+              << ", integral=" << pid_integral_dy
+              << ", raw_out=" << pid_output_dy_raw
+              << ", effort=" << control_effort_dy
+              << ", CH3_final=" << ai_joystickState.ch3
+              << std::endl;
+}
 
-        pid_ch3_history.push_back(ai_joystickState.ch3);
-        if (pid_ch3_history.size() > PLOT_HISTORY_LENGTH) {
-            pid_ch3_history.pop_front(); // 保持队列长度固定
-        }
-    } else {
-        // 如果跟踪无效，可以选择清除历史或用0填充，或者什么都不做
-        // 为了简单，这里我们什么都不做，曲线会停在最后有效值
-        // 或者，可以添加一个标记，让DrawPIDCurves知道数据是无效的
-    }
-    // 调试输出
-    // std::cout << "PID: err_dx=" << error_dx << ", out_ch1=" << ai_joystickState.ch1
-    //           << " | err_dy=" << error_dy << ", out_ch3=" << ai_joystickState.ch3 << std::endl;
 }
 
 // --- Function Prototypes ---
@@ -981,7 +945,7 @@ int main() {
 
         if (key_process_counter % KEY_PROCESS_INTERVAL == 0) {
             double pid_adjust_step_p = 1; 
-            double pid_adjust_step_i = 0.5;
+            double pid_adjust_step_i = 0.01;
             double pid_adjust_step_d = 0.5;  
 
             // CH1 (dx) PID参数调整
