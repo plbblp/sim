@@ -59,7 +59,7 @@ endif()
 message(STATUS "Attempting to link libraries to '${EXECUTABLE_NAME}'")
 # 链接 DirectInput, User32, ViGEmClient, 和 OpenCV
 # OpenCV_LIBS 变量由 find_package(OpenCV) 设置，包含了所有需要的OpenCV模块
-target_link_libraries(${EXECUTABLE_NAME} PRIVATE dinput8 dxguid user32 ViGEmClient ${OpenCV_LIBS} SetupAPI dxgi d3d11)
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE dinput8 dxguid user32 ViGEmClient ${OpenCV_LIBS} SetupAPI dxgi d3d11 ws2_32)
 message(STATUS "target_link_libraries for '${EXECUTABLE_NAME}' called successfully.")
 
 # --- Post-build step to copy ViGEmClient.dll ---

@@ -3,6 +3,10 @@
 #include <iostream>
 #include <vector>
 #include <string>
+
+#include <winsock2.h> // Winsock 主头文件
+#include <ws2tcpip.h> // For inet_pton, etc. (optional, for more advanced address setup)
+
 #include <windows.h>
 #include <ViGEm/Client.h>
 #include <algorithm> 
@@ -20,6 +24,14 @@
 #include <dxgi1_2.h>
 #include <d3d11.h>
 
+
+
+#include <cmath> // For math functions
+
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
+
 // --- RemoteChannels struct ---
 struct RemoteChannels {
     long ch1, ch2, ch3, ch4; bool ch5; long ch6, ch7, ch8, ch9; bool ch10;
@@ -32,6 +44,16 @@ struct TrackingOffset {
     bool is_valid; // 标记当前偏移量是否有效 (例如，跟踪成功时为true)
 
     TrackingOffset() : dx(0), dy(0), is_valid(false) {} // 默认构造函数
+};
+
+struct DronePose {
+    float timestamp;
+    float pitch; // 俯仰角 (绕X轴旋转，通常)
+    float roll;  // 横滚角 (绕Y轴旋转，通常)
+    float yaw;   // 偏航角 (绕Z轴旋转，通常)
+    // 注意：轴的定义和旋转顺序可能因系统而异，您可能需要根据实际数据调整
+
+    DronePose() : timestamp(0.0f), pitch(0.0f), roll(0.0f), yaw(0.0f) {}
 };
 
 // --- Global Variables ---
@@ -65,6 +87,16 @@ cv::Ptr<cv::Tracker> tracker; // OpenCV跟踪器对象
 cv::Rect tracked_bbox;      // 存储跟踪到的边界框
 bool tracker_initialized = false;
 TrackingOffset g_current_tracking_offset;
+
+DronePose g_current_drone_pose; 
+
+SOCKET udp_socket = INVALID_SOCKET;
+sockaddr_in server_address;
+bool udp_initialized = false;
+
+const char* UDP_SERVER_IP = "127.0.0.1";
+const int UDP_SERVER_PORT = 9001;
+const int UDP_BUFFER_SIZE = 20; // 20字节数据长度
 
 // --- PID Controller Parameters and State (示例) ---
 // 您需要为每个轴 (dx, dy) 分别设置这些参数
@@ -118,6 +150,10 @@ void get_track_frame_and_init_tracker(const cv::Mat& current_display_frame); // 
 void update_tracker_and_draw(cv::Mat& current_display_frame); // 新增
 void ControlAircraftWithPID();
 void DrawPIDCurves(cv::Mat& frame_to_draw_on);
+
+bool InitializeUDPListener();
+void ReceiveUDPPoseData();
+void CleanupUDPListener();
 // ... (所有函数的定义保持与我上一条回复中的代码一致) ...
 // (InitializeDirectInput, CleanupDirectInput, InitializeVirtualGamepad, CleanupVirtualGamepad, CreateDummyWindow)
 // (InitializeDesktopDuplication, CaptureFrameDXGI, CleanupDesktopDuplication DEFINITION)
@@ -135,6 +171,158 @@ BOOL CALLBACK EnumAxesCallback(const DIDEVICEOBJECTINSTANCE* pdidoi, VOID* pCont
         if (g_pJoystick) g_pJoystick->SetProperty(DIPROP_RANGE, &diprg.diph); 
     } return DIENUM_CONTINUE;
 }
+
+bool InitializeUDPListener() {
+    WSADATA wsaData;
+    int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (result != 0) {
+        std::cerr << "WSAStartup failed: " << result << std::endl;
+        return false;
+    }
+
+    udp_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (udp_socket == INVALID_SOCKET) {
+        std::cerr << "socket failed with error: " << WSAGetLastError() << std::endl;
+        WSACleanup();
+        return false;
+    }
+
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(UDP_SERVER_PORT);
+    // server_address.sin_addr.s_addr = inet_addr(UDP_SERVER_IP); // Deprecated
+    // Use inet_pton for better IPv6 compatibility if needed, but for 127.0.0.1, s_addr is fine
+    if (inet_pton(AF_INET, UDP_SERVER_IP, &server_address.sin_addr) != 1) {
+        std::cerr << "inet_pton failed with error: " << WSAGetLastError() << std::endl;
+        closesocket(udp_socket);
+        WSACleanup();
+        return false;
+    }
+
+
+    // Bind the socket to the server address and port
+    // This allows the socket to receive data sent to this address/port
+    if (bind(udp_socket, (SOCKADDR*)&server_address, sizeof(server_address)) == SOCKET_ERROR) {
+        std::cerr << "bind failed with error: " << WSAGetLastError() << std::endl;
+        closesocket(udp_socket);
+        WSACleanup();
+        return false;
+    }
+
+    // Set socket to non-blocking mode (optional, but recommended for game loops)
+    // This prevents recvfrom from blocking the main thread if no data is available.
+    u_long mode = 1; // 1 to enable non-blocking socket
+    if (ioctlsocket(udp_socket, FIONBIO, &mode) == SOCKET_ERROR) {
+        std::cerr << "ioctlsocket failed to set non-blocking mode. Error: " << WSAGetLastError() << std::endl;
+        // Continue in blocking mode, or handle error
+    }
+
+
+    std::cout << "UDP Listener initialized on " << UDP_SERVER_IP << ":" << UDP_SERVER_PORT << std::endl;
+    udp_initialized = true;
+    return true;
+}
+
+void QuaternionToEulerAngles(float qx, float qy, float qz, float qw, 
+                             float& pitch, float& roll, float& yaw) {
+    // Roll (x-axis rotation)
+    double sinr_cosp = 2.0 * (qw * qx + qy * qz);
+    double cosr_cosp = 1.0 - 2.0 * (qx * qx + qy * qy);
+    roll = static_cast<float>(std::atan2(sinr_cosp, cosr_cosp));
+
+    // Pitch (y-axis rotation)
+    double sinp = 2.0 * (qw * qy - qz * qx);
+    if (std::abs(sinp) >= 1)
+        pitch = static_cast<float>(std::copysign(M_PI / 2.0, sinp)); // use 90 degrees if out of range
+    else
+        pitch = static_cast<float>(std::asin(sinp));
+
+    // Yaw (z-axis rotation)
+    double siny_cosp = 2.0 * (qw * qz + qx * qy);
+    double cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz);
+    yaw = static_cast<float>(std::atan2(siny_cosp, cosy_cosp));
+
+    // 结果是弧度，如果需要角度，可以在这里转换或在使用时转换
+    // pitch = pitch * 180.0f / M_PI;
+    // roll  = roll  * 180.0f / M_PI;
+    // yaw   = yaw   * 180.0f / M_PI;
+}
+
+void ReceiveUDPPoseData() {
+    if (!udp_initialized || udp_socket == INVALID_SOCKET) {
+        return;
+    }
+
+    char buffer[UDP_BUFFER_SIZE];
+    sockaddr_in sender_address; 
+    int sender_address_size = sizeof(sender_address);
+
+    int bytes_received = recvfrom(udp_socket, buffer, UDP_BUFFER_SIZE, 0,
+                                 (SOCKADDR*)&sender_address, &sender_address_size);
+
+    if (bytes_received == SOCKET_ERROR) {
+        int error = WSAGetLastError();
+        if (error == WSAEWOULDBLOCK) {
+            return;
+        } else {
+            return;
+        }
+    }
+
+    if (bytes_received == UDP_BUFFER_SIZE) {
+        float timestamp_raw;
+        float qx_raw, qy_raw, qz_raw, qw_raw;
+
+        // Timestamp
+        memcpy(×tamp_raw, buffer, sizeof(float));
+
+        // Quaternion x
+        memcpy(&qx_raw, buffer + 4, sizeof(float));
+        // Quaternion y
+        memcpy(&qy_raw, buffer + 8, sizeof(float));
+        // Quaternion z
+        memcpy(&qz_raw, buffer + 12, sizeof(float));
+        // Quaternion w
+        memcpy(&qw_raw, buffer + 16, sizeof(float));
+
+        // --- 将四元数转换为欧拉角并存储 ---
+        g_current_drone_pose.timestamp = timestamp_raw;
+        QuaternionToEulerAngles(qx_raw, qy_raw, qz_raw, qw_raw,
+                                g_current_drone_pose.pitch,
+                                g_current_drone_pose.roll,
+                                g_current_drone_pose.yaw);
+
+        // 可选：将弧度转换为角度（如果需要）
+        // 如果 QuaternionToEulerAngles 内部没有转换，可以在这里转换
+        // static const float RAD_TO_DEG = 180.0f / static_cast<float>(M_PI);
+        // g_current_drone_pose.pitch *= RAD_TO_DEG;
+        // g_current_drone_pose.roll  *= RAD_TO_DEG;
+        // g_current_drone_pose.yaw   *= RAD_TO_DEG;
+
+
+        // Optional: Print received data for debugging
+        // std::cout << "UDP Pose: T=" << g_current_drone_pose.timestamp
+        //           << " Pitch=" << g_current_drone_pose.pitch 
+        //           << " Roll=" << g_current_drone_pose.roll
+        //           << " Yaw=" << g_current_drone_pose.yaw << " (rad)" << std::endl;
+
+    } else if (bytes_received > 0) {
+        std::cerr << "Warning: Received UDP packet of unexpected size: " << bytes_received 
+                  << " bytes. Expected " << UDP_BUFFER_SIZE << " bytes." << std::endl;
+    }
+}
+
+void CleanupUDPListener() {
+    if (udp_socket != INVALID_SOCKET) {
+        closesocket(udp_socket);
+        udp_socket = INVALID_SOCKET;
+    }
+    if (udp_initialized) { // Only call WSACleanup if WSAStartup was successful
+        WSACleanup();
+        udp_initialized = false;
+    }
+    std::cout << "UDP Listener cleaned up." << std::endl;
+}
+
 bool InitializeDirectInput(HWND hWnd) {
     HRESULT hr = DirectInput8Create(GetModuleHandle(nullptr), DIRECTINPUT_VERSION, IID_IDirectInput8, (VOID**)&g_pDI, nullptr); 
     if (FAILED(hr)) { std::cerr << "DirectInput8Create failed!" << std::endl; return false; }
@@ -897,6 +1085,12 @@ int main() {
     if (!InitializeVirtualGamepad()) { CleanupDirectInput(); CleanupVirtualGamepad(); DestroyWindow(hDummyWnd); return 1; }
     if (!InitializeDesktopDuplication()) { CleanupDirectInput(); CleanupVirtualGamepad(); CleanupDesktopDuplication(); DestroyWindow(hDummyWnd); return 1; }
     
+    if (!InitializeUDPListener()) {
+        std::cerr << "UDP Listener could not be initialized. Pose data will not be received." << std::endl;
+        // Decide if this is a fatal error or if the program can continue without pose data
+        // For now, we'll let it continue.
+    }
+
     last_fps_time_point = std::chrono::steady_clock::now();
     cv::namedWindow(PREVIEW_WINDOW_NAME, cv::WINDOW_AUTOSIZE); 
 
@@ -906,6 +1100,7 @@ int main() {
 
     while (true) {
         PollPhysicalJoystick();
+        ReceiveUDPPoseData();
         CaptureFrameDXGI(); 
         is_track_on();
         if (!desktop_capture_full.empty()) {
@@ -996,6 +1191,7 @@ int main() {
     CleanupDesktopDuplication(); 
     CleanupDirectInput();
     CleanupVirtualGamepad();
+    CleanupUDPListener();
     DestroyWindow(hDummyWnd);
     cv::destroyAllWindows();
     std::cout << "Exiting." << std::endl;

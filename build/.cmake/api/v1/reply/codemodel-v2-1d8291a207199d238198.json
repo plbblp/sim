@@ -50,7 +50,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-JoystickReaderApp-Debug-ba0a3d70856c0e1eb4dc.json",
+					"jsonFile" : "target-JoystickReaderApp-Debug-c59932525f4e9d461f95.json",
 					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
@@ -112,7 +112,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-JoystickReaderApp-Release-c30469bca0f9929ca989.json",
+					"jsonFile" : "target-JoystickReaderApp-Release-22914dee07385d2d2840.json",
 					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
@@ -174,7 +174,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-JoystickReaderApp-MinSizeRel-c280ad0160f85ce8d395.json",
+					"jsonFile" : "target-JoystickReaderApp-MinSizeRel-27e2b719973d885b4182.json",
 					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},
@@ -236,7 +236,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "JoystickReaderApp::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-JoystickReaderApp-RelWithDebInfo-4e014fdbd5e11a02e25f.json",
+					"jsonFile" : "target-JoystickReaderApp-RelWithDebInfo-b9c56642087934989d2f.json",
 					"name" : "JoystickReaderApp",
 					"projectIndex" : 0
 				},

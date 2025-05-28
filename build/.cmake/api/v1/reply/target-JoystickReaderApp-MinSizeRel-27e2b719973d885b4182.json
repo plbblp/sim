@@ -2,10 +2,10 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "Release/JoystickReaderApp.exe"
+			"path" : "MinSizeRel/JoystickReaderApp.exe"
 		},
 		{
-			"path" : "Release/JoystickReaderApp.pdb"
+			"path" : "MinSizeRel/JoystickReaderApp.pdb"
 		}
 	],
 	"backtrace" : 2,
@@ -136,7 +136,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O2 /Ob2 /DNDEBUG -std:c++17"
+					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O1 /Ob1 /DNDEBUG -std:c++17"
 				}
 			],
 			"defines" : 
@@ -185,7 +185,7 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O2 /Ob2 /DNDEBUG",
+				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /O1 /Ob1 /DNDEBUG",
 				"role" : "flags"
 			},
 			{
@@ -384,6 +384,11 @@
 			{
 				"backtrace" : 4,
 				"fragment" : "d3d11.lib",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 4,
+				"fragment" : "ws2_32.lib",
 				"role" : "libraries"
 			},
 			{
