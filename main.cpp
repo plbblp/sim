@@ -1,13 +1,16 @@
-﻿#define DIRECTINPUT_VERSION 0x0800
+﻿#define WIN32_LEAN_AND_MEAN // <--- 在所有其他 #include 之前定义这个宏
+
+#include <windows.h>        // 现在 windows.h 不会包含 winsock.h (或其大部分内容)
+#include <winsock2.h>       // 现在可以安全地包含 winsock2.h
+#include <ws2tcpip.h>       // 通常与 winsock2.h 一起使用
+
+
+#define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 #include <iostream>
 #include <vector>
 #include <string>
 
-#include <winsock2.h> // Winsock 主头文件
-#include <ws2tcpip.h> // For inet_pton, etc. (optional, for more advanced address setup)
-
-#include <windows.h>
 #include <ViGEm/Client.h>
 #include <algorithm> 
 #include <chrono>    
@@ -222,30 +225,96 @@ bool InitializeUDPListener() {
     return true;
 }
 
-void QuaternionToEulerAngles(float qx, float qy, float qz, float qw, 
-                             float& pitch, float& roll, float& yaw) {
-    // Roll (x-axis rotation)
-    double sinr_cosp = 2.0 * (qw * qx + qy * qz);
-    double cosr_cosp = 1.0 - 2.0 * (qx * qx + qy * qy);
-    roll = static_cast<float>(std::atan2(sinr_cosp, cosr_cosp));
+#include <cmath> // For std::atan2, std::asin, std::abs, std::copysign
 
-    // Pitch (y-axis rotation)
-    double sinp = 2.0 * (qw * qy - qz * qx);
-    if (std::abs(sinp) >= 1)
-        pitch = static_cast<float>(std::copysign(M_PI / 2.0, sinp)); // use 90 degrees if out of range
-    else
-        pitch = static_cast<float>(std::asin(sinp));
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846 // Define M_PI if not already defined
+#endif
+// 或者更推荐的方式，如果您的编译器支持C++17或更高版本，可以使用 <numbers>
+// #include <numbers>
+// const double M_PI = std::numbers::pi;
 
-    // Yaw (z-axis rotation)
-    double siny_cosp = 2.0 * (qw * qz + qx * qy);
-    double cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz);
-    yaw = static_cast<float>(std::atan2(siny_cosp, cosy_cosp));
 
-    // 结果是弧度，如果需要角度，可以在这里转换或在使用时转换
-    // pitch = pitch * 180.0f / M_PI;
-    // roll  = roll  * 180.0f / M_PI;
-    // yaw   = yaw   * 180.0f / M_PI;
+// 函数定义：将四元数转换为欧拉角 (俯仰绕X, 偏航绕Y, 横滚绕Z)
+// 假设输入四元数是 (qw, qx, qy, qz) 其中 qw 是标量部分
+// 输出欧拉角以弧度为单位
+void QuaternionToEulerAngles_YUp_LeftHanded(
+    float qw, float qx, float qy, float qz,
+    float& pitch_out,  // 输出：俯仰角 (绕X轴 - 机头上下)
+    float& yaw_out,    // 输出：偏航角 (绕Y轴 - 机头左右)
+    float& roll_out)   // 输出：横滚角 (绕Z轴 - 左右倾斜)
+{
+    // 这些公式是基于一个常见的右手坐标系下的ZYX旋转顺序（Yaw, Pitch, Roll）推导出来的
+    // 然后我们根据您的左手Y-Up坐标系 (X-Right, Y-Up, Z-Forward) 来解释和映射这些角度。
+    // Yaw (Psi)   - 对应您的 Yaw (绕Y轴)
+    // Pitch (Theta) - 对应您的 Pitch (绕X轴)
+    // Roll (Phi)  - 对应您的 Roll (绕Z轴)
+
+    // 横滚 (Roll) - 绕物体前进方向Z轴的旋转
+    // 在标准右手ZYX中，这通常是绕新X轴的旋转(phi)，但如果我们将四元数直接分解
+    // 并将qz主要关联到绕Z轴的旋转：
+    double sin_roll = 2.0 * (qw * qz + qx * qy);
+    double cos_roll = 1.0 - 2.0 * (qy * qy + qz * qz);
+    roll_out = static_cast<float>(std::atan2(sin_roll, cos_roll));
+
+    // 俯仰 (Pitch) - 绕物体右方X轴的旋转
+    // 在标准右手ZYX中，这通常是绕新Y轴的旋转(theta)。
+    // 如果我们将qx主要关联到绕X轴的旋转：
+    double sin_pitch = 2.0 * (qw * qx - qy * qz); // 注意这里的符号，有些推导是 (qw*qx + qy*qz) 用于roll, (qw*qy - qx*qz) 用于pitch
+                                                // 这个公式组合 (roll用qz, pitch用qx, yaw用qy) 是一种常见的分解方式
+    // 钳制sin_pitch的值在[-1, 1]之间，以避免asin的定义域错误
+    if (sin_pitch > 1.0) sin_pitch = 1.0;
+    if (sin_pitch < -1.0) sin_pitch = -1.0;
+    pitch_out = static_cast<float>(std::asin(sin_pitch));
+    // 注意：当pitch接近+/-90度时，会出现万向节死锁，此时roll和yaw可能不稳定
+    // 上面的asin处理会在pitch达到+/-90度时饱和，但不会显式处理万向节死锁导致的roll/yaw耦合。
+    // 更复杂的实现会在这里调整roll和yaw的计算。
+    // 对于简单的万向节死锁处理：
+    // if (std::abs(sin_pitch) >= 0.99999) { // 接近 +/- 90 度
+    //     roll_out = 0; // 或者 atan2(-2.0f * qy * qz, 1.0f - 2.0f * (qy*qy + qx*qx)) 等特定公式
+    //     yaw_out = static_cast<float>(std::atan2(-2.0f * qx * qz + 2.0f * qw * qy, 1.0f - 2.0f * (qy*qy + qz*qz))); // 示例
+    //     // 这里的具体公式取决于万向节死锁时的约定
+    // } else {
+    //     // 正常计算 roll 和 yaw (如下)
+    // }
+
+
+    // 偏航 (Yaw) - 绕物体上方Y轴的旋转
+    // 在标准右手ZYX中，这通常是绕原始Z轴的旋转(psi)。
+    // 如果我们将qy主要关联到绕Y轴的旋转：
+    double sin_yaw = 2.0 * (qw * qy + qx * qz);
+    double cos_yaw = 1.0 - 2.0 * (qx * qx + qy * qy);
+    yaw_out = static_cast<float>(std::atan2(sin_yaw, cos_yaw));
+
+
+    // --- 关于左手坐标系和旋转方向的调整 ---
+    // 上述公式是基于标准数学推导，通常对应右手坐标系和特定的旋转正方向。
+    // 对于您的左手Y-Up系统：
+    // +X Right, +Y Up, +Z Forward
+    // 正Pitch: 机头向上 (绕+X轴正向旋转)
+    // 正Yaw:   机头向右 (绕+Y轴正向旋转)
+    // 正Roll:  飞机向右倾斜 (绕+Z轴正向旋转)
+
+    // 您需要通过实验来验证这些计算出的 pitch_out, yaw_out, roll_out 的符号
+    // 是否与您在模拟器中观察到的飞机姿态变化一致。
+    // 例如，如果飞机向上抬头，pitch_out 是否为正？
+    // 如果飞机向右滚转，roll_out 是否为正？
+    // 如果飞机向右偏航，yaw_out 是否为正？
+
+    // 如果某个角度的符号相反，您可以在该角度的最后结果上乘以 -1.0f。
+    // 例如:
+    // pitch_out *= -1.0f; // 如果发现计算出的pitch与期望相反
+
+    // 同样，如果轴的映射不正确（例如，计算出的“roll”实际上是“yaw”），
+    // 则需要调整公式中使用的四元数分量 (qx, qy, qz)。
+    // 我当前选择的公式组合是：
+    // roll_out (绕Z) 主要依赖 qz 和 qw (以及 qx*qy 的耦合项)
+    // pitch_out (绕X) 主要依赖 qx 和 qw (以及 qy*qz 的耦合项)
+    // yaw_out (绕Y) 主要依赖 qy 和 qw (以及 qx*qz 的耦合项)
+    // 这是一种常见的分解方式，但并非唯一。
 }
+
+
 
 void ReceiveUDPPoseData() {
     if (!udp_initialized || udp_socket == INVALID_SOCKET) {
@@ -253,62 +322,67 @@ void ReceiveUDPPoseData() {
     }
 
     char buffer[UDP_BUFFER_SIZE];
+    char last_valid_buffer[UDP_BUFFER_SIZE]; // 用于存储最后一个成功接收的20字节数据包
+    bool received_at_least_one_packet = false;
+    int bytes_received;
+
     sockaddr_in sender_address; 
     int sender_address_size = sizeof(sender_address);
 
-    int bytes_received = recvfrom(udp_socket, buffer, UDP_BUFFER_SIZE, 0,
-                                 (SOCKADDR*)&sender_address, &sender_address_size);
+    // 循环读取，直到缓冲区为空 (WSAEWOULDBLOCK) 或发生其他错误
+    while (true) {
+        bytes_received = recvfrom(udp_socket, buffer, UDP_BUFFER_SIZE, 0,
+                                     (SOCKADDR*)&sender_address, &sender_address_size);
 
-    if (bytes_received == SOCKET_ERROR) {
-        int error = WSAGetLastError();
-        if (error == WSAEWOULDBLOCK) {
-            return;
-        } else {
-            return;
+        if (bytes_received == SOCKET_ERROR) {
+            int error = WSAGetLastError();
+            if (error == WSAEWOULDBLOCK) {
+                // 没有更多数据了，跳出循环
+                break; 
+            } else {
+                // 发生了其他错误，打印并跳出
+                // std::cerr << "recvfrom failed with error: " << error << std::endl; // 可选的错误日志
+                break; 
+            }
+        }
+
+        if (bytes_received == UDP_BUFFER_SIZE) {
+            // 成功接收到一个20字节的数据包
+            memcpy(last_valid_buffer, buffer, UDP_BUFFER_SIZE); // 将当前数据包复制到last_valid_buffer
+            received_at_least_one_packet = true;
+        } else if (bytes_received > 0) {
+            // 收到了数据，但大小不符合预期，忽略它，但继续尝试清空缓冲区
+            std::cerr << "Warning: Received UDP packet of unexpected size: " << bytes_received 
+                      << " bytes. Expected " << UDP_BUFFER_SIZE << " bytes. Discarding." << std::endl;
+        } else { 
+            // bytes_received == 0 (通常表示连接关闭，UDP中不常见) 或其他未处理情况
+            break; // 跳出循环
         }
     }
 
-    if (bytes_received == UDP_BUFFER_SIZE) {
+    // 如果在本次函数调用中至少成功接收并缓存了一个有效数据包，则解析最后一个
+    if (received_at_least_one_packet) {
         float timestamp_raw;
         float qx_raw, qy_raw, qz_raw, qw_raw;
 
-        // Timestamp
-        memcpy(×tamp_raw, buffer, sizeof(float));
+        // 从 last_valid_buffer 解析数据
+        memcpy(&timestamp_raw, last_valid_buffer, sizeof(float));
+        memcpy(&qx_raw, last_valid_buffer + 4, sizeof(float));
+        memcpy(&qy_raw, last_valid_buffer + 8, sizeof(float));
+        memcpy(&qz_raw, last_valid_buffer + 12, sizeof(float));
+        memcpy(&qw_raw, last_valid_buffer + 16, sizeof(float));
 
-        // Quaternion x
-        memcpy(&qx_raw, buffer + 4, sizeof(float));
-        // Quaternion y
-        memcpy(&qy_raw, buffer + 8, sizeof(float));
-        // Quaternion z
-        memcpy(&qz_raw, buffer + 12, sizeof(float));
-        // Quaternion w
-        memcpy(&qw_raw, buffer + 16, sizeof(float));
-
-        // --- 将四元数转换为欧拉角并存储 ---
         g_current_drone_pose.timestamp = timestamp_raw;
-        QuaternionToEulerAngles(qx_raw, qy_raw, qz_raw, qw_raw,
-                                g_current_drone_pose.pitch,
-                                g_current_drone_pose.roll,
-                                g_current_drone_pose.yaw);
-
-        // 可选：将弧度转换为角度（如果需要）
-        // 如果 QuaternionToEulerAngles 内部没有转换，可以在这里转换
-        // static const float RAD_TO_DEG = 180.0f / static_cast<float>(M_PI);
-        // g_current_drone_pose.pitch *= RAD_TO_DEG;
-        // g_current_drone_pose.roll  *= RAD_TO_DEG;
-        // g_current_drone_pose.yaw   *= RAD_TO_DEG;
-
-
-        // Optional: Print received data for debugging
-        // std::cout << "UDP Pose: T=" << g_current_drone_pose.timestamp
-        //           << " Pitch=" << g_current_drone_pose.pitch 
-        //           << " Roll=" << g_current_drone_pose.roll
-        //           << " Yaw=" << g_current_drone_pose.yaw << " (rad)" << std::endl;
-
-    } else if (bytes_received > 0) {
-        std::cerr << "Warning: Received UDP packet of unexpected size: " << bytes_received 
-                  << " bytes. Expected " << UDP_BUFFER_SIZE << " bytes." << std::endl;
+        QuaternionToEulerAngles_YUp_LeftHanded(qw_raw, qx_raw, qy_raw, qz_raw, // Note the order w, x, y, z
+                                               g_current_drone_pose.pitch, // Output pitch (around X)
+                                               g_current_drone_pose.yaw,   // Output yaw (around Y)
+                                               g_current_drone_pose.roll); // Output roll (around Z)
+        
+        // Optional: Print for debugging
+        // std::cout << "Processed LATEST UDP Pose: T=" << g_current_drone_pose.timestamp << " ..." << std::endl;
     }
+    // 如果 received_at_least_one_packet 为 false，则表示本次调用没有收到新的有效数据包，
+    // g_current_drone_pose 将保持其先前的值。
 }
 
 void CleanupUDPListener() {
@@ -470,115 +544,158 @@ void CleanupDesktopDuplication() { // This is the DEFINITION
 
 void DrawFrameInfo(cv::Mat& frame_to_draw) {
     if (frame_to_draw.empty() || frame_to_draw.cols <= 0 || frame_to_draw.rows <= 0) { return; }
-    int font_face = cv::FONT_HERSHEY_SIMPLEX;
-    double font_scale = 0.5;
-    int thickness = 1;
-    cv::Scalar text_color_info(0, 255, 0); // Green for FPS and Channel info
-    cv::Scalar text_color_offset(0, 0, 255); // Red for Offset info (will be used later)
-    cv::Scalar crosshair_color(0, 0, 255); // Red for Crosshair
 
-    // --- FPS Calculation and Display (existing code) ---
+    // --- Font and Color Definitions ---
+    int font_face = cv::FONT_HERSHEY_SIMPLEX;
+    // double font_scale_info = 0.5; // For FPS, Channels, Pose - Defined inside lambda or as needed
+    // double font_scale_offset = 0.5; // For Tracking Offset - Defined inside lambda or as needed
+    int thickness = 1;
+    cv::Scalar text_color_green(0, 255, 0);
+    cv::Scalar text_color_red(0, 0, 255);
+    cv::Scalar text_bg_color(0, 0, 0, 180); // Semi-transparent black
+    int line_type = cv::LINE_AA;
+    int text_padding = 3;
+
+    // Helper lambda to draw text with background
+    auto drawTextWithBackground = 
+        [&](const std::string& text, cv::Point origin_bottom_left, double scale, const cv::Scalar& color, const cv::Scalar& bgColor) {
+        if (text.empty()) return;
+        int baseline = 0;
+        cv::Size text_size = cv::getTextSize(text, font_face, scale, thickness, &baseline);
+        // baseline is distance from text bottom to baseline.
+        // text_size.height is height of text box above baseline.
+
+        // Define background rectangle based on text_size and origin_bottom_left
+        cv::Rect bg_rect(origin_bottom_left.x - text_padding,
+                         origin_bottom_left.y - text_size.height - baseline - text_padding, // Top of text box
+                         text_size.width + 2 * text_padding,
+                         text_size.height + baseline + 2 * text_padding); // Total height of text box
+
+        // Ensure bg_rect is within frame boundaries
+        bg_rect.x = std::max(0, bg_rect.x);
+        bg_rect.y = std::max(0, bg_rect.y);
+        if (bg_rect.x + bg_rect.width > frame_to_draw.cols) {
+            bg_rect.width = frame_to_draw.cols - bg_rect.x;
+        }
+        if (bg_rect.y + bg_rect.height > frame_to_draw.rows) {
+            bg_rect.height = frame_to_draw.rows - bg_rect.y;
+        }
+        
+        if (bg_rect.width <= 0 || bg_rect.height <= 0) return; // Invalid rect after clamping
+
+        if (frame_to_draw.channels() == 4 && bgColor[3] < 255) {
+            cv::Mat roi = frame_to_draw(bg_rect);
+            if(roi.empty() || roi.cols <=0 || roi.rows <=0) return;
+            cv::Mat color_layer(roi.size(), CV_8UC4, bgColor);
+            double alpha = static_cast<double>(bgColor[3]) / 255.0;
+            cv::addWeighted(color_layer, alpha, roi, 1.0 - alpha, 0.0, roi);
+        } else {
+            cv::rectangle(frame_to_draw, bg_rect, cv::Scalar(bgColor[0], bgColor[1], bgColor[2]), cv::FILLED);
+        }
+        cv::putText(frame_to_draw, text, origin_bottom_left, font_face, scale, color, thickness, line_type);
+    };
+
+    double font_scale_info = 0.5; // Common scale for info texts
+
+    // --- FPS Calculation and Display ---
     frame_counter_fps++;
     auto current_time = std::chrono::steady_clock::now();
     double elapsed_seconds = std::chrono::duration_cast<std::chrono::duration<double>>(current_time - last_fps_time_point).count();
     if (elapsed_seconds >= 1.0) {
         display_fps = static_cast<double>(frame_counter_fps) / elapsed_seconds;
-        frame_counter_fps = 0;
-        last_fps_time_point = current_time;
+        frame_counter_fps = 0; last_fps_time_point = current_time;
     }
     std::ostringstream fps_stream;
     fps_stream << "FPS: " << std::fixed << std::setprecision(1) << display_fps;
     std::string fps_text = fps_stream.str();
-    int baseline_fps = 0;
-    cv::Size text_size_fps = cv::getTextSize(fps_text, font_face, font_scale, thickness, &baseline_fps);
+    cv::Size text_size_fps = cv::getTextSize(fps_text, font_face, font_scale_info, thickness, nullptr);
     cv::Point fps_origin(frame_to_draw.cols - text_size_fps.width - 10, frame_to_draw.rows - 10);
-    cv::putText(frame_to_draw, fps_text, fps_origin, font_face, font_scale, text_color_info, thickness, cv::LINE_AA);
+    drawTextWithBackground(fps_text, fps_origin, font_scale_info, text_color_green, text_bg_color);
 
-    // --- Channel Data Display (existing code) ---
+    // --- Channel Data Display ---
     std::ostringstream channels_stream;
-    channels_stream << "CH1:" << g_joystickState.ch1 << " CH2:" << g_joystickState.ch2 << " CH3:" << g_joystickState.ch3 << " CH4:" << g_joystickState.ch4 << " CH8:" << g_joystickState.ch8;
+    channels_stream << "CH1:" << g_joystickState.ch1 << " CH2:" << g_joystickState.ch2 << " CH3:" << g_joystickState.ch3 
+                    << " CH4:" << g_joystickState.ch4 << " CH8:" << g_joystickState.ch8;
     std::string channels_text = channels_stream.str();
-    int baseline_channels = 0;
-    cv::Size text_size_channels = cv::getTextSize(channels_text, font_face, font_scale, thickness, &baseline_channels);
+    // cv::Size text_size_channels = cv::getTextSize(channels_text, font_face, font_scale_info, thickness, nullptr); // Not strictly needed here if only used for positioning
     cv::Point channels_origin(10, frame_to_draw.rows - 10);
-    cv::putText(frame_to_draw, channels_text, channels_origin, font_face, font_scale, text_color_info, thickness, cv::LINE_AA);
+    drawTextWithBackground(channels_text, channels_origin, font_scale_info, text_color_green, text_bg_color);
 
-    // --- Overlay track_frame (existing code) ---
+    // --- Overlay track_frame ---
     if (flag_track == 1 && !track_frame.empty()) {
-        int track_width = track_frame.cols;
-        int track_height = track_frame.rows;
+        // ... (您的 track_frame 叠加逻辑，确保它不会与新文本重叠太多) ...
+        // (这段代码与您之前提供的版本相同，我将省略以保持简洁，但您应该保留它)
+        int track_width = track_frame.cols; int track_height = track_frame.rows;
         if (track_width <= frame_to_draw.cols && track_height <= frame_to_draw.rows) {
             cv::Rect roi_top_right(frame_to_draw.cols - track_width - 5, 5, track_width, track_height);
-            if (roi_top_right.x < 0) roi_top_right.x = 0;
-            if (roi_top_right.y < 0) roi_top_right.y = 0;
-            if (roi_top_right.x + roi_top_right.width > frame_to_draw.cols) {
-                roi_top_right.width = frame_to_draw.cols - roi_top_right.x;
-            }
-            if (roi_top_right.y + roi_top_right.height > frame_to_draw.rows) {
-                roi_top_right.height = frame_to_draw.rows - roi_top_right.y;
-            }
+            if (roi_top_right.x < 0) roi_top_right.x = 0; if (roi_top_right.y < 0) roi_top_right.y = 0;
+            if (roi_top_right.x + roi_top_right.width > frame_to_draw.cols) roi_top_right.width = frame_to_draw.cols - roi_top_right.x;
+            if (roi_top_right.y + roi_top_right.height > frame_to_draw.rows) roi_top_right.height = frame_to_draw.rows - roi_top_right.y;
 
             if (roi_top_right.width > 0 && roi_top_right.height > 0) {
                 cv::Mat destination_roi = frame_to_draw(roi_top_right);
                 cv::Mat track_frame_to_copy;
                 if (track_frame.cols != roi_top_right.width || track_frame.rows != roi_top_right.height) {
                     cv::resize(track_frame, track_frame_to_copy, cv::Size(roi_top_right.width, roi_top_right.height));
-                } else {
-                    track_frame_to_copy = track_frame;
-                }
+                } else { track_frame_to_copy = track_frame; }
                 
-                if (track_frame_to_copy.type() == destination_roi.type()) {
-                    track_frame_to_copy.copyTo(destination_roi);
-                } else if (track_frame_to_copy.type() == CV_8UC4 && destination_roi.type() == CV_8UC3) {
-                    cv::Mat temp_bgr;
-                    cv::cvtColor(track_frame_to_copy, temp_bgr, cv::COLOR_BGRA2BGR);
-                    temp_bgr.copyTo(destination_roi);
-                } else if (track_frame_to_copy.type() == CV_8UC3 && destination_roi.type() == CV_8UC4) {
-                     cv::Mat temp_bgra;
-                    cv::cvtColor(track_frame_to_copy, temp_bgra, cv::COLOR_BGR2BGRA);
-                    temp_bgra.copyTo(destination_roi);
-                } else {
-                    std::cerr << "Warning: track_frame and destination_roi type mismatch for overlay." << std::endl;
-                }
+                if (track_frame_to_copy.type() == destination_roi.type()) { track_frame_to_copy.copyTo(destination_roi); }
+                else if (track_frame_to_copy.type() == CV_8UC4 && destination_roi.type() == CV_8UC3) { cv::Mat temp_bgr; cv::cvtColor(track_frame_to_copy, temp_bgr, cv::COLOR_BGRA2BGR); temp_bgr.copyTo(destination_roi); }
+                else if (track_frame_to_copy.type() == CV_8UC3 && destination_roi.type() == CV_8UC4) { cv::Mat temp_bgra; cv::cvtColor(track_frame_to_copy, temp_bgra, cv::COLOR_BGR2BGRA); temp_bgra.copyTo(destination_roi); }
+                else { /* std::cerr << "Warning: track_frame type mismatch." << std::endl; */ }
                 cv::rectangle(frame_to_draw, roi_top_right, cv::Scalar(255, 0, 0), 1); 
             }
-        } else {
-            std::cerr << "Warning: track_frame is too large to be overlaid on display_frame." << std::endl;
-        }
+        } else { /* std::cerr << "Warning: track_frame too large." << std::endl; */ }
     }
 
-    // --- Draw a red crosshair in the center (existing code) ---
-    int crosshair_size = 40; 
-    int line_length = crosshair_size / 2; 
-    int crosshair_thickness = 1; 
+
+    // --- Draw a red crosshair in the center ---
+    int crosshair_size = 40; int line_length = crosshair_size / 2; int crosshair_thickness = 1; 
     cv::Point center_point(frame_to_draw.cols / 2, frame_to_draw.rows / 2);
-    cv::line(frame_to_draw, cv::Point(center_point.x - line_length, center_point.y), cv::Point(center_point.x + line_length, center_point.y), crosshair_color, crosshair_thickness, cv::LINE_AA);
-    cv::line(frame_to_draw, cv::Point(center_point.x, center_point.y - line_length), cv::Point(center_point.x, center_point.y + line_length), crosshair_color, crosshair_thickness, cv::LINE_AA);
+    cv::line(frame_to_draw, cv::Point(center_point.x - line_length, center_point.y), cv::Point(center_point.x + line_length, center_point.y), text_color_red, crosshair_thickness, line_type);
+    cv::line(frame_to_draw, cv::Point(center_point.x, center_point.y - line_length), cv::Point(center_point.x, center_point.y + line_length), text_color_red, crosshair_thickness, line_type);
     
-    // --- NEW MODIFICATION START: Display Tracking Offset at the top ---
-    if (g_current_tracking_offset.is_valid) { // Only display if offset is valid
+    // --- Display Tracking Offset at the top ---
+    double font_scale_offset = 0.5; // Scale for offset text
+    if (g_current_tracking_offset.is_valid) { 
         std::ostringstream offset_stream;
-        offset_stream << "Offset DX: " << g_current_tracking_offset.dx 
-                      << " DY: " << g_current_tracking_offset.dy;
+        offset_stream << "Offset DX: " << g_current_tracking_offset.dx << " DY: " << g_current_tracking_offset.dy;
         std::string offset_text = offset_stream.str();
-
-        int baseline_offset = 0;
-        cv::Size text_size_offset = cv::getTextSize(offset_text, font_face, font_scale, thickness, &baseline_offset);
-        
-        // Position at the top-left
-        cv::Point offset_origin(10, 20); // x=10, y=20 (from top)
-
-        // Or, position at the top-center:
-        // cv::Point offset_origin((frame_to_draw.cols - text_size_offset.width) / 2, 20);
-
-        cv::putText(frame_to_draw, offset_text, offset_origin, font_face, font_scale, text_color_offset, thickness, cv::LINE_AA);
+        cv::Point offset_origin(10, 20 + text_padding); // Adjusted y for putText anchor
+        drawTextWithBackground(offset_text, offset_origin, font_scale_offset, text_color_red, text_bg_color);
     }
-    // --- NEW MODIFICATION END ---
-
-    if (flag_track == 1) { // 只在跟踪模式下绘制PID曲线
-        DrawPIDCurves(frame_to_draw);
+    
+    // --- Display PID Curves ---
+    if (flag_track == 1) { 
+        DrawPIDCurves(frame_to_draw); 
     }
-} // DrawFrameInfo 函数结束
+
+    // --- Display Drone Pose Data ---
+    static const float RAD_TO_DEG_INFO = 180.0f / static_cast<float>(M_PI); 
+    std::ostringstream pose_stream;
+    pose_stream << "Pose P: " << std::fixed << std::setprecision(1) << (g_current_drone_pose.pitch * RAD_TO_DEG_INFO)
+                << " R: " << std::fixed << std::setprecision(1) << (g_current_drone_pose.roll * RAD_TO_DEG_INFO)
+                << " Y: " << std::fixed << std::setprecision(1) << (g_current_drone_pose.yaw * RAD_TO_DEG_INFO);
+    std::string pose_text = pose_stream.str();
+
+    int baseline_pose = 0;
+    cv::Size text_size_pose = cv::getTextSize(pose_text, font_face, font_scale_info, thickness, &baseline_pose);
+    
+    int estimated_line_height_pose = text_size_pose.height + baseline_pose; 
+    cv::Point pose_origin(10, frame_to_draw.rows - estimated_line_height_pose - 10 + baseline_pose); // Adjusted for putText anchor
+
+    // Simple check to prevent overlap with channel data (which is at frame_to_draw.rows - 10)
+    cv::Size text_size_channels_check = cv::getTextSize(channels_text, font_face, font_scale_info, thickness, nullptr);
+    int channels_text_top_y = frame_to_draw.rows - 10 - text_size_channels_check.height;
+
+    if (pose_origin.y - text_size_pose.height < channels_text_top_y + 5 && // Check if top of pose_text overlaps bottom of channels_text
+        pose_origin.x < channels_origin.x + text_size_channels_check.width) { // And if they are horizontally aligned
+         pose_origin.y = channels_text_top_y - 5; // Place it above channel data
+    }
+    if (pose_origin.y - text_size_pose.height < 10) pose_origin.y = 10 + text_size_pose.height; // Ensure it's not off the top
+
+    drawTextWithBackground(pose_text, pose_origin, font_scale_info, text_color_green, text_bg_color);
+}
 
 void PollPhysicalJoystick() {
     if (!g_pJoystick) {
@@ -644,15 +761,15 @@ void MapToVirtualJoystick() {
         g_virtualReport.sThumbRX = scale_axis(g_joystickState.ch1);      // X-Rotation
         g_virtualReport.sThumbRY = scale_axis(g_joystickState.ch2);  // Y-Rotation (XInput Y通常反向)
 
-        g_virtualReport.bLeftTrigger  = scale_trigger(g_joystickState.ch9); // Z-Axis
-        g_virtualReport.bRightTrigger = scale_trigger(g_joystickState.ch6); // Z-Rotation
+        //g_virtualReport.bLeftTrigger  = scale_trigger(g_joystickState.ch9); // Z-Axis
+        //g_virtualReport.bRightTrigger = scale_trigger(g_joystickState.ch6); // Z-Rotation
 
-        if (g_joystickState.ch5)  g_virtualReport.wButtons |= XUSB_GAMEPAD_A;             // Button 1
-        if (g_joystickState.ch10) g_virtualReport.wButtons |= XUSB_GAMEPAD_B;             // Button 2
+        //if (g_joystickState.ch5)  g_virtualReport.wButtons |= XUSB_GAMEPAD_A;             // Button 1
+        //if (g_joystickState.ch10) g_virtualReport.wButtons |= XUSB_GAMEPAD_B;             // Button 2
         
         // ch7 和 ch8 (滑块) 映射到肩键 (示例逻辑)
-        if (g_joystickState.ch7 > 500) g_virtualReport.wButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
-        if (g_joystickState.ch8 > 500) g_virtualReport.wButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
+        //if (g_joystickState.ch7 > 500) g_virtualReport.wButtons |= XUSB_GAMEPAD_LEFT_SHOULDER;
+        //if (g_joystickState.ch8 > 500) g_virtualReport.wButtons |= XUSB_GAMEPAD_RIGHT_SHOULDER;
 
     } else if (flag_track == 1) {
         // 当 flag_track 为 1 时，这里是您未来实现AI控制逻辑的地方
