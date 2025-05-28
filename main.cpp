@@ -1255,36 +1255,36 @@ int main() {
 
         bool pid_param_changed_this_cycle = false; // 重命名以避免与函数外的变量冲突
 
-        if (key_process_counter % KEY_PROCESS_INTERVAL == 0) {
-            double pid_adjust_step_p = 1; 
-            double pid_adjust_step_i = 0.01;
-            double pid_adjust_step_d = 0.5;  
+        //if (key_process_counter % KEY_PROCESS_INTERVAL == 0) {
+        //    double pid_adjust_step_p = 1; 
+        //    double pid_adjust_step_i = 0.01;
+        //    double pid_adjust_step_d = 0.5;  
 
             // CH1 (dx) PID参数调整
-            if (GetAsyncKeyState('Q') & 0x8000) { pid_kp_dx += pid_adjust_step_p; pid_param_changed_this_cycle = true; }
-            if (GetAsyncKeyState('A') & 0x8000) { pid_kp_dx -= pid_adjust_step_p; if(pid_kp_dx < 0) pid_kp_dx = 0; pid_param_changed_this_cycle = true; }
-            if (GetAsyncKeyState('W') & 0x8000) { pid_ki_dx += pid_adjust_step_i; pid_param_changed_this_cycle = true; }
-            if (GetAsyncKeyState('S') & 0x8000) { pid_ki_dx -= pid_adjust_step_i; if(pid_ki_dx < 0) pid_ki_dx = 0; pid_param_changed_this_cycle = true; }
-            if (GetAsyncKeyState('E') & 0x8000) { pid_kd_dx += pid_adjust_step_d; pid_param_changed_this_cycle = true; }
-            if (GetAsyncKeyState('D') & 0x8000) { pid_kd_dx -= pid_adjust_step_d; if(pid_kd_dx < 0) pid_kd_dx = 0; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('Q') & 0x8000) { pid_kp_dx += pid_adjust_step_p; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('A') & 0x8000) { pid_kp_dx -= pid_adjust_step_p; if(pid_kp_dx < 0) pid_kp_dx = 0; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('W') & 0x8000) { pid_ki_dx += pid_adjust_step_i; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('S') & 0x8000) { pid_ki_dx -= pid_adjust_step_i; if(pid_ki_dx < 0) pid_ki_dx = 0; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('E') & 0x8000) { pid_kd_dx += pid_adjust_step_d; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('D') & 0x8000) { pid_kd_dx -= pid_adjust_step_d; if(pid_kd_dx < 0) pid_kd_dx = 0; pid_param_changed_this_cycle = true; }
 
             // CH3 (dy) PID参数调整
-            if (GetAsyncKeyState('I') & 0x8000) { pid_kp_dy += pid_adjust_step_p; pid_param_changed_this_cycle = true; }
-            if (GetAsyncKeyState('J') & 0x8000) { pid_kp_dy -= pid_adjust_step_p; if(pid_kp_dy < 0) pid_kp_dy = 0; pid_param_changed_this_cycle = true; }
-            if (GetAsyncKeyState('O') & 0x8000) { pid_ki_dy += pid_adjust_step_i; pid_param_changed_this_cycle = true; }
-            if (GetAsyncKeyState('K') & 0x8000) { pid_ki_dy -= pid_adjust_step_i; if(pid_ki_dy < 0) pid_ki_dy = 0; pid_param_changed_this_cycle = true; }
-            if (GetAsyncKeyState('P') & 0x8000) { pid_kd_dy += pid_adjust_step_d; pid_param_changed_this_cycle = true; }
-            if (GetAsyncKeyState('L') & 0x8000) { pid_kd_dy -= pid_adjust_step_d; if(pid_kd_dy < 0) pid_kd_dy = 0; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('I') & 0x8000) { pid_kp_dy += pid_adjust_step_p; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('J') & 0x8000) { pid_kp_dy -= pid_adjust_step_p; if(pid_kp_dy < 0) pid_kp_dy = 0; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('O') & 0x8000) { pid_ki_dy += pid_adjust_step_i; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('K') & 0x8000) { pid_ki_dy -= pid_adjust_step_i; if(pid_ki_dy < 0) pid_ki_dy = 0; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('P') & 0x8000) { pid_kd_dy += pid_adjust_step_d; pid_param_changed_this_cycle = true; }
+            //if (GetAsyncKeyState('L') & 0x8000) { pid_kd_dy -= pid_adjust_step_d; if(pid_kd_dy < 0) pid_kd_dy = 0; pid_param_changed_this_cycle = true; }
             
-            if (pid_param_changed_this_cycle) {
-                pid_integral_dx = 0; pid_previous_error_dx = 0;
-                pid_integral_dy = 0; pid_previous_error_dy = 0;
-                std::cout << "PID Params Updated (Global Keys):" << std::endl;
-                std::cout << "  CH1 (dx): P=" << pid_kp_dx << ", I=" << pid_ki_dx << ", D=" << pid_kd_dx << std::endl;
-                std::cout << "  CH3 (dy): P=" << pid_kp_dy << ", I=" << pid_ki_dy << ", D=" << pid_kd_dy << std::endl;
-            }
-        }
-        key_process_counter++;
+         //   if (pid_param_changed_this_cycle) {
+         //       pid_integral_dx = 0; pid_previous_error_dx = 0;
+         //       pid_integral_dy = 0; pid_previous_error_dy = 0;
+          //      std::cout << "PID Params Updated (Global Keys):" << std::endl;
+          //      std::cout << "  CH1 (dx): P=" << pid_kp_dx << ", I=" << pid_ki_dx << ", D=" << pid_kd_dx << std::endl;
+         //      std::cout << "  CH3 (dy): P=" << pid_kp_dy << ", I=" << pid_ki_dy << ", D=" << pid_kd_dy << std::endl;
+         //   }
+        //}
+        //key_process_counter++;
         // --- PID参数调整结束 ---
 
 
@@ -1298,7 +1298,7 @@ int main() {
                 // update_tracker_and_draw 会处理重置
             }
         }
-        t_key_pressed_last_frame = t_key_currently_pressed;
+        //t_key_pressed_last_frame = t_key_currently_pressed;
         
         ControlAircraftWithPID();
          
